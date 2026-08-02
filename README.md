@@ -111,7 +111,10 @@ The measured development interfaces are recorded in
 Native Arm benchmark methodology is in
 [`docs/benchmarking.md`](docs/benchmarking.md).
 The current scoring-only Arm baseline is recorded in
-[`reports/arm-inference-baseline.md`](reports/arm-inference-baseline.md).
+[`reports/arm-inference-baseline.md`](reports/arm-inference-baseline.md). The
+first Arm optimization comparison, reducing the forest from 300 to 25 trees,
+is recorded in
+[`reports/arm-25tree-optimization.md`](reports/arm-25tree-optimization.md).
 
 ## License
 
