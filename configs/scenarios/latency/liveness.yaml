@@ -1,0 +1,9 @@
+schema_version: 1
+name: arm-latency-liveness
+seed: 2026
+faults:
+  - id: perception-hang
+    type: liveness
+    start_seconds: 3
+    duration_seconds: 3
+    target: detections

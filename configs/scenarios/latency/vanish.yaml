@@ -1,0 +1,12 @@
+schema_version: 1
+name: arm-latency-vanish
+seed: 2026
+faults:
+  - id: vanish-car
+    type: vanish
+    start_seconds: 3
+    duration_seconds: 3
+    target: detections
+    parameters:
+      class_label: 1
+      object_index: 0

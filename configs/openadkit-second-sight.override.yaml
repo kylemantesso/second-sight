@@ -18,7 +18,7 @@ services:
       - ROS_DOMAIN_ID=88
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     volumes:
-      - ${SECOND_SIGHT_ROOT}/configs/scenarios/all-faults.yaml:/scenario.yaml:ro
+      - ${SECOND_SIGHT_SCENARIO_PATH}:/scenario.yaml:ro
     command: >-
       python3 /opt/second-sight/fault_injector_node.py
       --scenario /scenario.yaml
@@ -32,13 +32,28 @@ services:
       - ROS_DOMAIN_ID=88
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     volumes:
-      - ${SECOND_SIGHT_ROOT}/models/hybrid-overnight.joblib:/model.joblib:ro
+      - ${SECOND_SIGHT_MODEL_PATH}:/model.joblib:ro
     command: >-
       python3 /opt/second-sight/second_sight_node.py
       --model /model.joblib
       --mode hybrid
     depends_on:
       - planning-control
+      - fault-injector
+
+  latency-monitor:
+    image: second-sight-latency-monitor:dev
+    init: true
+    environment:
+      - ROS_DOMAIN_ID=88
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    volumes:
+      - ${SECOND_SIGHT_ROOT}/reports/measurements:/measurements
+    command: >-
+      python3 /opt/second-sight/latency_monitor_node.py
+      --output /measurements/${SECOND_SIGHT_LATENCY_OUTPUT:-live.jsonl}
+    depends_on:
+      - second-sight
       - fault-injector
 
   dashboard:
@@ -60,3 +75,4 @@ services:
     depends_on:
       - second-sight
       - fault-injector
+      - latency-monitor

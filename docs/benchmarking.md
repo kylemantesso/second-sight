@@ -26,6 +26,8 @@ feature rows when the requested sample count exceeds the recording length.
 This is a microbenchmark of model scoring, not end-to-end safety latency.
 End-to-end reports must separately measure the injector timestamp, anomaly
 decision, safe-stop request, and stop-service response across repeated runs.
+The implemented same-host live instrumentation and its limits are documented in
+[`latency-instrumentation.md`](latency-instrumentation.md).
 
 ## Required report context
 

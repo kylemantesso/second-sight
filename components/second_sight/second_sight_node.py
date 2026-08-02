@@ -132,6 +132,12 @@ class SecondSightNode(Node):
         self.latency_publisher = self.create_publisher(Float64, "/second_sight/inference_ms", 10)
         self.status_publisher = self.create_publisher(String, "/second_sight/status", 10)
         self.stop_publisher = self.create_publisher(Bool, "/second_sight/safe_stop_requested", 10)
+        self.decision_publisher = self.create_publisher(
+            String, "/second_sight/latency/decision", 10
+        )
+        self.stop_event_publisher = self.create_publisher(
+            String, "/second_sight/latency/safe_stop_requested", 10
+        )
         self.stop_client = self.create_client(SetStop, "/control/vehicle_cmd_gate/set_stop")
         self.get_logger().info(
             "Second Sight ready: "
@@ -162,6 +168,7 @@ class SecondSightNode(Node):
         started_ns = time.perf_counter_ns()
         result = self.scorer.score(row)
         inference_ms = (time.perf_counter_ns() - started_ns) / 1_000_000
+        decision_monotonic_ns = time.monotonic_ns()
         anomalous = result["anomalous"]
         self.consecutive_anomalies = self.consecutive_anomalies + 1 if anomalous else 0
 
@@ -176,6 +183,21 @@ class SecondSightNode(Node):
                         "forest_score": result["forest_score"],
                         "guardrail_score": result["guardrail_score"],
                         "guardrail_features": result["guardrail_features"],
+                        "consecutive_anomalies": self.consecutive_anomalies,
+                    },
+                    separators=(",", ":"),
+                )
+            )
+        )
+        self.decision_publisher.publish(
+            String(
+                data=json.dumps(
+                    {
+                        "schema_version": 1,
+                        "event": "anomaly_decision",
+                        "anomalous": anomalous,
+                        "monotonic_ns": decision_monotonic_ns,
+                        "inference_ms": inference_ms,
                         "consecutive_anomalies": self.consecutive_anomalies,
                     },
                     separators=(",", ":"),
@@ -198,7 +220,21 @@ class SecondSightNode(Node):
         if self.stop_requested:
             return
         self.stop_requested = True
+        request_monotonic_ns = time.monotonic_ns()
         self.stop_publisher.publish(Bool(data=True))
+        self.stop_event_publisher.publish(
+            String(
+                data=json.dumps(
+                    {
+                        "schema_version": 1,
+                        "event": "safe_stop_requested",
+                        "monotonic_ns": request_monotonic_ns,
+                        "dry_run": not self.enable_safe_stop,
+                    },
+                    separators=(",", ":"),
+                )
+            )
+        )
         if not self.enable_safe_stop:
             self.get_logger().warning("safe stop requested in dry-run mode")
             return

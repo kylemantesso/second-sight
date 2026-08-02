@@ -16,3 +16,4 @@ models/*.onnx
 models/*.metadata.json
 reports/*.json
 reports/benchmarks/
+reports/measurements/

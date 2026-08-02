@@ -72,6 +72,9 @@ configure() {
   export NGROK_URL="${NGROK_URL:-}"
   export TIMEOUT="${OPENADKIT_TIMEOUT:-3600}"
   export SECOND_SIGHT_ROOT="$ROOT_DIR"
+  export SECOND_SIGHT_MODEL_PATH="${SECOND_SIGHT_MODEL_PATH:-$ROOT_DIR/models/hybrid-25tree.joblib}"
+  export SECOND_SIGHT_SCENARIO_PATH="${SECOND_SIGHT_SCENARIO_PATH:-$ROOT_DIR/configs/scenarios/all-faults.yaml}"
+  export SECOND_SIGHT_LATENCY_OUTPUT="${SECOND_SIGHT_LATENCY_OUTPUT:-live.jsonl}"
   COMPOSE=(
     docker compose
     --project-name "$COMPOSE_PROJECT_NAME"
@@ -145,19 +148,30 @@ case "$command" in
   integrated-start)
     require_docker
     configure
+    if [[ ! -f "$SECOND_SIGHT_MODEL_PATH" ]]; then
+      echo "Second Sight model is missing: $SECOND_SIGHT_MODEL_PATH" >&2
+      exit 1
+    fi
+    if [[ ! -f "$SECOND_SIGHT_SCENARIO_PATH" ]]; then
+      echo "Second Sight scenario is missing: $SECOND_SIGHT_SCENARIO_PATH" >&2
+      exit 1
+    fi
     docker build --file "$ROOT_DIR/components/simulator/Dockerfile" \
       --tag second-sight-simulator:dev "$ROOT_DIR"
     docker build --file "$ROOT_DIR/components/fault_injector/Dockerfile" \
       --tag second-sight-fault-injector:dev "$ROOT_DIR"
     docker build --file "$ROOT_DIR/components/second_sight/Dockerfile" \
       --tag second-sight-node:dev "$ROOT_DIR"
+    docker build --file "$ROOT_DIR/components/latency_monitor/Dockerfile" \
+      --tag second-sight-latency-monitor:dev "$ROOT_DIR"
     docker build --file "$ROOT_DIR/components/dashboard/Dockerfile" \
       --tag second-sight-dashboard:dev "$ROOT_DIR"
     "${COMPOSE[@]}" --file "$ROOT_DIR/configs/openadkit-second-sight.override.yaml" \
-      up --detach visualizer fault-injector second-sight dashboard
-    echo "Integrated Open AD Kit is starting in second-sight dry-run mode."
+      up --detach visualizer fault-injector second-sight latency-monitor dashboard
+    echo "Integrated Open AD Kit is starting in Second Sight dry-run mode."
     echo "Visualizer: http://localhost:6080/vnc.html"
     echo "Foxglove: ws://localhost:8765"
+    echo "Latency JSONL: reports/measurements/$SECOND_SIGHT_LATENCY_OUTPUT"
     ;;
   integrated-status)
     require_docker

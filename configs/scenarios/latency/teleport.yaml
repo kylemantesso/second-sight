@@ -1,0 +1,13 @@
+schema_version: 1
+name: arm-latency-teleport
+seed: 2026
+faults:
+  - id: teleport-car
+    type: teleport
+    start_seconds: 3
+    duration_seconds: 3
+    target: detections
+    parameters:
+      class_label: 1
+      object_index: 0
+      offset: {x: 20.0, y: -20.0, z: 0.0}

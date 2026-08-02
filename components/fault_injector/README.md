@@ -104,6 +104,9 @@ image. Start the complete stack in dry-run mode with:
 - `/second_sight/fault/type` (`std_msgs/msg/String`)
 - `/second_sight/fault/event` (`std_msgs/msg/String`, JSON)
 - `/second_sight/fault/timestamp_ns` (`std_msgs/msg/Int64`)
+- `/second_sight/latency/fault_injected` (`std_msgs/msg/String`, JSON)
 
 These topics are directly visible in Foxglove and provide injection timestamps
-for automated time-to-detect evaluation.
+for automated time-to-detect evaluation. The latency topic is emitted only once
+per fault interval, immediately before the first modified or suppressed output,
+and carries a same-host monotonic timestamp for the measurement harness.

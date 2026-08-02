@@ -22,6 +22,9 @@ flowchart LR
     PLANNER -->|trajectory stream| SIGHT
     SIGHT -->|safe-stop command| PLANNER
     SIGHT -->|score and latency| DASHBOARD[Foxglove dashboard]
+    INJECTOR -.->|fault timestamp| MEASURE[Latency monitor]
+    SIGHT -.->|decision and stop timestamp| MEASURE
+    MEASURE -->|private JSONL artifact| RESULTS[Arm benchmark report]
 ```
 
 The model and feature code will stay ROS-independent. Thin ROS 2 adapters will
@@ -89,9 +92,10 @@ uv run second-sight inject \
 
 The hybrid detects all six injected faults in the current fixed-route replay;
 see [`reports/baseline.md`](reports/baseline.md). The live injector, Second Sight,
-simulator remap, and Foxglove transport are integrated. The next milestone is
-deployment and measurement on Arm Linux plus evaluation on varied routes before
-any performance claim.
+simulator remap, Foxglove transport, and a measurement-only fault-to-safe-stop
+timing harness are integrated. The next milestone is repeated live measurement
+on Arm Linux plus evaluation on varied routes before any end-to-end performance
+or general detection-rate claim.
 
 The integrated stack includes Foxglove Bridge at `ws://localhost:8765`; see
 [`components/dashboard/README.md`](components/dashboard/README.md).
@@ -115,6 +119,8 @@ The current scoring-only Arm baseline is recorded in
 first Arm optimization comparison, reducing the forest from 300 to 25 trees,
 is recorded in
 [`reports/arm-25tree-optimization.md`](reports/arm-25tree-optimization.md).
+The live end-to-end measurement protocol is in
+[`docs/latency-instrumentation.md`](docs/latency-instrumentation.md).
 
 ## License
 

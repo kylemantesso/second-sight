@@ -1,0 +1,11 @@
+schema_version: 1
+name: arm-latency-confidence-collapse
+seed: 2026
+faults:
+  - id: collapse-confidence
+    type: confidence_collapse
+    start_seconds: 3
+    duration_seconds: 3
+    target: detections
+    parameters:
+      factor: 0.05

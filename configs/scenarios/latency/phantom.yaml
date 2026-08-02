@@ -1,0 +1,15 @@
+schema_version: 1
+name: arm-latency-phantom
+seed: 2026
+faults:
+  - id: phantom-pedestrian
+    type: phantom
+    start_seconds: 3
+    duration_seconds: 3
+    target: detections
+    parameters:
+      class_label: 7
+      classification_probability: 1.0
+      existence_probability: 1.0
+      position: {x: 59182.0, y: 43035.0, z: -4.8}
+      dimensions: {x: 0.8, y: 0.8, z: 1.8}

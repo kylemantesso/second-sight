@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -130,6 +131,9 @@ class FaultInjectorNode(Node):
         self.active_publisher = self.create_publisher(Bool, "/second_sight/fault/active", 10)
         self.type_publisher = self.create_publisher(String, "/second_sight/fault/type", 10)
         self.event_publisher = self.create_publisher(String, "/second_sight/fault/event", 10)
+        self.measurement_publisher = self.create_publisher(
+            String, "/second_sight/latency/fault_injected", 10
+        )
         self.timestamp_publisher = self.create_publisher(
             Int64, "/second_sight/fault/timestamp_ns", 10
         )
@@ -158,6 +162,7 @@ class FaultInjectorNode(Node):
             for fault in self.engine.scenario.faults
             if self.engine.stats[fault.id].active_events > before[fault.id]
         ]
+        started_faults = [fault for fault in active_faults if before[fault.id] == 0]
         self.active_publisher.publish(Bool(data=bool(active_faults)))
         if active_faults:
             fault_types = [fault.type for fault in active_faults]
@@ -173,6 +178,25 @@ class FaultInjectorNode(Node):
             self.timestamp_publisher.publish(Int64(data=now_ns))
             self.event_publisher.publish(
                 String(data=json.dumps(telemetry, separators=(",", ":")))
+            )
+        # This is a measurement side channel only. It is emitted immediately
+        # before the first corrupted output for a fault interval and is never
+        # subscribed to by the detector.
+        for fault in started_faults:
+            self.measurement_publisher.publish(
+                String(
+                    data=json.dumps(
+                        {
+                            "schema_version": 1,
+                            "event": "fault_injected",
+                            "fault_id": fault.id,
+                            "fault_type": fault.type,
+                            "monotonic_ns": time.monotonic_ns(),
+                            "ros_time_ns": now_ns,
+                        },
+                        separators=(",", ":"),
+                    )
+                )
             )
         if output is not None:
             self.publisher.publish(detection_message(output))

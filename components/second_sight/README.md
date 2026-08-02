@@ -11,6 +11,8 @@ telemetry every trajectory tick, and can request a vehicle-command-gate stop.
 - `/second_sight/inference_ms` (`std_msgs/msg/Float64`)
 - `/second_sight/status` (`std_msgs/msg/String`, JSON details and trigger features)
 - `/second_sight/safe_stop_requested` (`std_msgs/msg/Bool`)
+- `/second_sight/latency/decision` (`std_msgs/msg/String`, JSON)
+- `/second_sight/latency/safe_stop_requested` (`std_msgs/msg/String`, JSON)
 
 ## Safe Stop
 
@@ -25,6 +27,11 @@ tier4_control_msgs/srv/SetStop
 
 The request uses `stop: true` and `request_source: second_sight`. Stop requests
 are latched so a persistent anomaly cannot flood the service.
+
+The two latency topics are measurement side channels. They carry a
+same-host monotonic timestamp at the anomaly decision and stop-request points;
+the detector never consumes fault ground-truth timing. Use the latency monitor
+to correlate these records with injector timing on Arm Linux.
 
 ## Container
 
