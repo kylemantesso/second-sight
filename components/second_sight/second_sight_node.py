@@ -12,6 +12,7 @@ from typing import Any
 import rclpy
 from autoware_perception_msgs.msg import DetectedObjects
 from autoware_planning_msgs.msg import Trajectory
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import Bool, Float64, String
 from tier4_control_msgs.srv import SetStop
@@ -396,9 +397,12 @@ def main() -> None:
     )
     try:
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

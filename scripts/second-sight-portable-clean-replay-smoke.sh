@@ -5,9 +5,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NETWORK="second-sight-portable-clean-replay"
 NODE_CONTAINER="second-sight-portable-clean-node"
 OBSERVER_CONTAINER="second-sight-portable-clean-observer"
+PUBLISHER_CONTAINER="second-sight-portable-clean-publisher"
 STREAM_PATH="${1:-$ROOT_DIR/data/processed/openadkit-clean-20260716T112843Z.jsonl}"
 MODEL_PATH="${2:-$ROOT_DIR/models/hybrid-25tree.joblib}"
 require_no_fast_anomalies="${SECOND_SIGHT_REQUIRE_NO_FAST_ANOMALIES:-false}"
+replay_seconds="${SECOND_SIGHT_CLEAN_REPLAY_SECONDS:-40}"
 
 if [[ ! -f "$STREAM_PATH" ]]; then
   echo "Clean stream does not exist: $STREAM_PATH" >&2
@@ -21,9 +23,14 @@ if [[ "$require_no_fast_anomalies" != "true" && "$require_no_fast_anomalies" != 
   echo "SECOND_SIGHT_REQUIRE_NO_FAST_ANOMALIES must be true or false." >&2
   exit 1
 fi
+if ! [[ "$replay_seconds" =~ ^[1-9][0-9]*$ ]]; then
+  echo "SECOND_SIGHT_CLEAN_REPLAY_SECONDS must be a positive integer." >&2
+  exit 1
+fi
 
 cleanup() {
-  docker rm --force "$OBSERVER_CONTAINER" "$NODE_CONTAINER" >/dev/null 2>&1 || true
+  docker rm --force "$PUBLISHER_CONTAINER" "$OBSERVER_CONTAINER" "$NODE_CONTAINER" \
+    >/dev/null 2>&1 || true
   docker network rm "$NETWORK" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -53,18 +60,23 @@ docker run --detach \
   >/dev/null
 
 sleep 3
-docker run --rm \
+docker run --detach \
+  --name "$PUBLISHER_CONTAINER" \
   --network "$NETWORK" \
   --env ROS_DOMAIN_ID=88 \
   --env RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
   --volume "$ROOT_DIR:/workspace:ro" \
   --volume "$STREAM_PATH:/clean.jsonl:ro" \
   second-sight-node:dev \
-  python3 /workspace/components/fault_injector/replay_node.py /clean.jsonl --shutdown-delay 0
+  python3 /workspace/components/fault_injector/replay_node.py /clean.jsonl \
+  --loop --loop-delay 0 >/dev/null
 
-# A finite replay has no more messages after EOF. Stop the watchdog before its
-# liveness timer can correctly interpret that deliberate end-of-stream as a
-# real perception hang.
+sleep "$replay_seconds"
+docker stop --time 0 "$PUBLISHER_CONTAINER" >/dev/null
+
+# The clean stream loops with no inter-loop gap, then both publishers are
+# stopped together. This lets the liveness timer observe normal cadence without
+# interpreting a deliberate finite-replay EOF as a perception failure.
 docker stop --time 0 "$NODE_CONTAINER" >/dev/null
 
 observer_status="$(docker wait "$OBSERVER_CONTAINER")"
