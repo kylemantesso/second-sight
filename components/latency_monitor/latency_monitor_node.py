@@ -75,6 +75,7 @@ class LatencyMonitorNode(Node):
             measurement = self.tracker.record_anomaly(
                 int(payload["monotonic_ns"]),
                 float(inference_ms) if inference_ms is not None else None,
+                str(payload["path"]) if payload.get("path") is not None else None,
             )
         except (KeyError, TypeError, ValueError):
             self.get_logger().warning("ignoring malformed anomaly timing payload")
@@ -87,7 +88,10 @@ class LatencyMonitorNode(Node):
         if payload is None:
             return
         try:
-            measurement = self.tracker.record_safe_stop(int(payload["monotonic_ns"]))
+            measurement = self.tracker.record_safe_stop(
+                int(payload["monotonic_ns"]),
+                str(payload["path"]) if payload.get("path") is not None else None,
+            )
         except (KeyError, TypeError, ValueError):
             self.get_logger().warning("ignoring malformed safe-stop timing payload")
             return

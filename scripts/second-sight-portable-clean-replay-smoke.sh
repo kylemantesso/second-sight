@@ -7,6 +7,7 @@ NODE_CONTAINER="second-sight-portable-clean-node"
 OBSERVER_CONTAINER="second-sight-portable-clean-observer"
 STREAM_PATH="${1:-$ROOT_DIR/data/processed/openadkit-clean-20260716T112843Z.jsonl}"
 MODEL_PATH="${2:-$ROOT_DIR/models/hybrid-25tree.joblib}"
+require_no_fast_anomalies="${SECOND_SIGHT_REQUIRE_NO_FAST_ANOMALIES:-false}"
 
 if [[ ! -f "$STREAM_PATH" ]]; then
   echo "Clean stream does not exist: $STREAM_PATH" >&2
@@ -14,6 +15,10 @@ if [[ ! -f "$STREAM_PATH" ]]; then
 fi
 if [[ ! -f "$MODEL_PATH" ]]; then
   echo "Model does not exist: $MODEL_PATH" >&2
+  exit 1
+fi
+if [[ "$require_no_fast_anomalies" != "true" && "$require_no_fast_anomalies" != "false" ]]; then
+  echo "SECOND_SIGHT_REQUIRE_NO_FAST_ANOMALIES must be true or false." >&2
   exit 1
 fi
 
@@ -67,5 +72,9 @@ if [[ "$observer_status" != "0" ]]; then
 fi
 if [[ "$node_logs" == *"safe stop requested"* ]]; then
   echo "Clean replay incorrectly requested a safe stop." >&2
+  exit 1
+fi
+if [[ "$require_no_fast_anomalies" == "true" && "$node_logs" == *"perception guardrail anomaly"* ]]; then
+  echo "Clean replay produced a perception-fast-path anomaly." >&2
   exit 1
 fi

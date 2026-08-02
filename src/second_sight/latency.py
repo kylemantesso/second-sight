@@ -26,7 +26,9 @@ class FaultTiming:
     fault_type: str
     injected_monotonic_ns: int
     decision_monotonic_ns: int | None = None
+    decision_path: str | None = None
     safe_stop_monotonic_ns: int | None = None
+    safe_stop_path: str | None = None
 
 
 class LatencyTracker:
@@ -54,7 +56,10 @@ class LatencyTracker:
         }
 
     def record_anomaly(
-        self, decision_monotonic_ns: int, inference_ms: float | None = None
+        self,
+        decision_monotonic_ns: int,
+        inference_ms: float | None = None,
+        path: str | None = None,
     ) -> dict[str, Any] | None:
         candidates = [
             timing
@@ -66,6 +71,7 @@ class LatencyTracker:
             return None
         timing = candidates[-1]
         timing.decision_monotonic_ns = decision_monotonic_ns
+        timing.decision_path = path
         measurement: dict[str, Any] = {
             "event": "anomaly_decision",
             "fault_id": timing.fault_id,
@@ -78,9 +84,13 @@ class LatencyTracker:
         }
         if inference_ms is not None:
             measurement["inference_ms"] = inference_ms
+        if path is not None:
+            measurement["decision_path"] = path
         return measurement
 
-    def record_safe_stop(self, safe_stop_monotonic_ns: int) -> dict[str, Any] | None:
+    def record_safe_stop(
+        self, safe_stop_monotonic_ns: int, path: str | None = None
+    ) -> dict[str, Any] | None:
         candidates = [
             timing
             for timing in self.faults
@@ -92,7 +102,8 @@ class LatencyTracker:
             return None
         timing = candidates[-1]
         timing.safe_stop_monotonic_ns = safe_stop_monotonic_ns
-        return {
+        timing.safe_stop_path = path
+        measurement = {
             "event": "safe_stop_requested",
             "fault_id": timing.fault_id,
             "fault_type": timing.fault_type,
@@ -109,3 +120,8 @@ class LatencyTracker:
                 safe_stop_monotonic_ns, timing.decision_monotonic_ns
             ),
         }
+        if timing.decision_path is not None:
+            measurement["decision_path"] = timing.decision_path
+        if path is not None:
+            measurement["safe_stop_path"] = path
+        return measurement

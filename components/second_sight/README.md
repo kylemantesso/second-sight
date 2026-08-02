@@ -84,6 +84,7 @@ does not retain the bag), run:
 
 ```bash
 SECOND_SIGHT_NODE_ARGS="--enable-perception-fast-path" \
+SECOND_SIGHT_REQUIRE_NO_FAST_ANOMALIES=true \
 ./scripts/second-sight-portable-clean-replay-smoke.sh \
   data/processed/openadkit-clean-20260716T112843Z.jsonl \
   models/hybrid-25tree.joblib

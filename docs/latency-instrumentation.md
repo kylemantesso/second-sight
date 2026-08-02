@@ -16,7 +16,7 @@ The JSONL output contains three event types for each fault interval:
 | Event | Meaning | Derived metric |
 | --- | --- | --- |
 | `fault_injected` | First modified or suppressed detection is about to be emitted | Measurement start |
-| `anomaly_decision` | First anomalous trajectory score after that fault | `fault_to_anomaly_ms` |
+| `anomaly_decision` | First anomalous score after that fault, with its path | `fault_to_anomaly_ms` |
 | `safe_stop_requested` | Second Sight latches its safe-stop request | `fault_to_safe_stop_ms`, `anomaly_to_safe_stop_ms` |
 
 Timestamps are produced with Python `time.monotonic_ns()`, avoiding errors from
@@ -34,6 +34,11 @@ The trajectory-context hybrid is the current reference path. An opt-in
 perception guardrail path is available for the next A/B experiment; it scores
 each detection without waiting for planning, but must not be presented as an
 optimization result until it passes clean-stream and Arm validation.
+
+When more than one scoring path is enabled, raw JSONL records carry
+`decision_path` and `safe_stop_path`. Use those fields to attribute an
+experiment to the fast perception guardrails or the reference trajectory
+hybrid; never infer the path from latency alone.
 
 ## Run on Arm Linux
 

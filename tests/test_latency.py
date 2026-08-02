@@ -15,7 +15,9 @@ def test_tracker_records_fault_to_anomaly_and_safe_stop() -> None:
         "injected_monotonic_ns": 1_000_000_000,
     }
 
-    decision = tracker.record_anomaly(1_037_125_000, inference_ms=0.8)
+    decision = tracker.record_anomaly(
+        1_037_125_000, inference_ms=0.8, path="perception_guardrails"
+    )
     assert decision == {
         "event": "anomaly_decision",
         "fault_id": "phantom-pedestrian",
@@ -24,9 +26,10 @@ def test_tracker_records_fault_to_anomaly_and_safe_stop() -> None:
         "decision_monotonic_ns": 1_037_125_000,
         "fault_to_anomaly_ms": 37.125,
         "inference_ms": 0.8,
+        "decision_path": "perception_guardrails",
     }
 
-    stop = tracker.record_safe_stop(1_037_875_000)
+    stop = tracker.record_safe_stop(1_037_875_000, path="perception_guardrails")
     assert stop == {
         "event": "safe_stop_requested",
         "fault_id": "phantom-pedestrian",
@@ -37,6 +40,8 @@ def test_tracker_records_fault_to_anomaly_and_safe_stop() -> None:
         "fault_to_anomaly_ms": 37.125,
         "fault_to_safe_stop_ms": 37.875,
         "anomaly_to_safe_stop_ms": 0.75,
+        "decision_path": "perception_guardrails",
+        "safe_stop_path": "perception_guardrails",
     }
 
 
