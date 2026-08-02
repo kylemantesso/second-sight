@@ -110,6 +110,8 @@ The measured development interfaces are recorded in
 [`docs/interfaces.md`](docs/interfaces.md).
 Native Arm benchmark methodology is in
 [`docs/benchmarking.md`](docs/benchmarking.md).
+The current scoring-only Arm baseline is recorded in
+[`reports/arm-inference-baseline.md`](reports/arm-inference-baseline.md).
 
 ## License
 
