@@ -75,6 +75,8 @@ configure() {
   export SECOND_SIGHT_MODEL_PATH="${SECOND_SIGHT_MODEL_PATH:-$ROOT_DIR/models/hybrid-25tree.joblib}"
   export SECOND_SIGHT_SCENARIO_PATH="${SECOND_SIGHT_SCENARIO_PATH:-$ROOT_DIR/configs/scenarios/all-faults.yaml}"
   export SECOND_SIGHT_LATENCY_OUTPUT="${SECOND_SIGHT_LATENCY_OUTPUT:-live.jsonl}"
+  export SECOND_SIGHT_UID="${SECOND_SIGHT_UID:-$(id -u)}"
+  export SECOND_SIGHT_GID="${SECOND_SIGHT_GID:-$(id -g)}"
   COMPOSE=(
     docker compose
     --project-name "$COMPOSE_PROJECT_NAME"

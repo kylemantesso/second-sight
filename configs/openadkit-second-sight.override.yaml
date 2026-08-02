@@ -44,6 +44,7 @@ services:
   latency-monitor:
     image: second-sight-latency-monitor:dev
     init: true
+    user: "${SECOND_SIGHT_UID}:${SECOND_SIGHT_GID}"
     environment:
       - ROS_DOMAIN_ID=88
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp

@@ -69,6 +69,10 @@ The runner writes `<run>.jsonl`, `<run>-resources.tsv`, and
 upload or aggregate artifacts; preserve successful runs in private storage only
 after inspecting them.
 
+The latency monitor runs as the invoking host user's UID/GID, so these mounted
+artifacts remain writable for subsequent trials. Do not start the stack as a
+different user between repetitions.
+
 Run each fault type in a fresh process. The six one-fault scenarios under
 [`configs/scenarios/latency/`](../configs/scenarios/latency/) are calibrated to
 the same transformations as the frozen combined evaluation. A safe-stop request
