@@ -57,9 +57,12 @@ def test_benchmark_writes_host_and_latency_report(tmp_path: Path) -> None:
     train_model([features], model, trees=5)
 
     output = tmp_path / "benchmark.json"
-    report = benchmark_model(model, stream, output, warmup=2, samples=5)
+    report = benchmark_model(
+        model, stream, output, warmup=2, samples=5, host_label="test-host"
+    )
 
     assert report["sample_count"] == 5
+    assert report["host"]["label"] == "test-host"
     assert report["stream"]["feature_rows"] == 3
     assert report["model"]["bytes"] > 0
     assert report["inference_us"]["max"] >= report["inference_us"]["min"]

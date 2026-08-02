@@ -39,6 +39,7 @@ def benchmark_model(
     mode: str = "hybrid",
     warmup: int = 1_000,
     samples: int = 10_000,
+    host_label: str | None = None,
 ) -> dict[str, Any]:
     """Measure one model score per tick on a native host and write a report."""
     if warmup < 0:
@@ -67,6 +68,7 @@ def benchmark_model(
         "kind": "inference_microbenchmark",
         "created_at_utc": datetime.now(UTC).isoformat(),
         "host": {
+            "label": host_label or platform.node(),
             "machine": platform.machine(),
             "platform": platform.platform(),
             "python": platform.python_version(),

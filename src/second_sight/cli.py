@@ -90,6 +90,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     benchmark_parser.add_argument("--warmup", type=int, default=1_000)
     benchmark_parser.add_argument("--samples", type=int, default=10_000)
+    benchmark_parser.add_argument(
+        "--host-label", help="operator-supplied host or instance label recorded in the report"
+    )
     return parser
 
 
@@ -183,6 +186,7 @@ def main() -> int:
             mode=args.mode,
             warmup=args.warmup,
             samples=args.samples,
+            host_label=args.host_label,
         )
         latency = report["inference_us"]
         print(f"Benchmark: {args.output}")

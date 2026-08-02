@@ -14,7 +14,8 @@ uv run second-sight benchmark \
   --output reports/benchmarks/baseline-inference.json \
   --mode hybrid \
   --warmup 1000 \
-  --samples 10000
+  --samples 10000 \
+  --host-label aws-c8g.4xlarge-ap-southeast-2a
 ```
 
 The command records the model and stream SHA-256 hashes, artifact size, host
