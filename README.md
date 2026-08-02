@@ -108,6 +108,8 @@ An overnight clean-data collection can run independently with:
 
 The measured development interfaces are recorded in
 [`docs/interfaces.md`](docs/interfaces.md).
+Native Arm benchmark methodology is in
+[`docs/benchmarking.md`](docs/benchmarking.md).
 
 ## License
 

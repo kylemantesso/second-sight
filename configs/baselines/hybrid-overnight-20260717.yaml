@@ -1,0 +1,37 @@
+schema_version: 1
+name: hybrid-overnight-20260717
+purpose: Frozen pre-optimization inference baseline for native Arm Linux measurements.
+source_revision: a5479eb78deba3db764d6bd15ac4f1021f4e76bc
+artifact_store: s3://second-sight-benchmark-artifacts-088711593565-ap-southeast-2/frozen/hybrid-overnight-20260717/
+
+model:
+  path: models/hybrid-overnight.joblib
+  sha256: 7d32d0b80ee37b26b5c662f9c0957a554a436c89fb317d21976659b1e50f8f32
+  metadata_path: models/hybrid-overnight.metadata.json
+  metadata_sha256: d1db9e0e4899a47440d0eec127052a944375f3225c649250ffb3d9cfce371bba
+  model_type: isolation_forest_with_normal_only_guardrails
+  training_rows: 16108
+  feature_count: 30
+
+benchmark_inputs:
+  clean_stream:
+    path: data/processed/openadkit-clean-20260716T112843Z.jsonl
+    sha256: 2e3ef61ee3a248bad6fb5d16427f46a07441ec7622d7a59a69a1c53bb4946bff
+  fault_stream:
+    path: data/processed/openadkit-all-faults.jsonl
+    sha256: b93e1bc76435d0b37990b4ec60bd2c8651b19df0f097d07032b96bce00ca358d
+  ground_truth:
+    path: data/processed/openadkit-all-faults.ground-truth.json
+    sha256: ceeb2735ce6967d9285ef4ed053e162cb8a23ab6481d5f85725c6f78b1b58ee7
+  scenario:
+    path: configs/scenarios/all-faults.yaml
+    sha256: 8c790d7c6aee5973035b067d1bec03d297dc59d0be44de0bf8c949fa3c7d63b4
+  offline_evaluation:
+    path: reports/hybrid-evaluation.json
+    sha256: 4128b2489c59eb1e431cab7ea6aa6438d25e6ff57603820627884071477563e3
+
+constraints:
+  - Do not change this artifact, input set, or benchmark configuration when
+    comparing an optimized candidate against the baseline.
+  - This baseline is development correctness evidence until repeated
+    end-to-end Arm measurements and held-out evaluation are completed.

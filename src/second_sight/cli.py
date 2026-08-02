@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from second_sight import __version__
+from second_sight.benchmark import benchmark_model
 from second_sight.faults import inject_file, load_scenario
 from second_sight.features import extract_features, valid_feature_csv, write_feature_csv
 from second_sight.model import evaluate_model, train_model
@@ -78,6 +79,17 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("isolation_forest", "guardrails", "hybrid"),
         default="isolation_forest",
     )
+    benchmark_parser = subcommands.add_parser(
+        "benchmark", help="measure model inference latency on the current host"
+    )
+    benchmark_parser.add_argument("stream", type=Path)
+    benchmark_parser.add_argument("--model", type=Path, required=True)
+    benchmark_parser.add_argument("--output", type=Path, required=True)
+    benchmark_parser.add_argument(
+        "--mode", choices=("isolation_forest", "guardrails", "hybrid"), default="hybrid"
+    )
+    benchmark_parser.add_argument("--warmup", type=int, default=1_000)
+    benchmark_parser.add_argument("--samples", type=int, default=10_000)
     return parser
 
 
@@ -162,6 +174,21 @@ def main() -> int:
             triggers = ", ".join(fault["guardrail_features"])
             trigger_text = f" [{triggers}]" if triggers else ""
             print(f"{fault['id']:<24} {latency_text}{trigger_text}")
+        return 0
+    if args.command == "benchmark":
+        report = benchmark_model(
+            args.model,
+            args.stream,
+            args.output,
+            mode=args.mode,
+            warmup=args.warmup,
+            samples=args.samples,
+        )
+        latency = report["inference_us"]
+        print(f"Benchmark: {args.output}")
+        print(f"Samples:   {report['sample_count']}")
+        print(f"p50:       {latency['p50']:.1f} us")
+        print(f"p99:       {latency['p99']:.1f} us")
         return 0
     return 2
 
