@@ -165,11 +165,15 @@ publisher on one Docker DDS network. The publisher loops indefinitely, but a
 trial is rejected if its first 34.6-second replay cycle ends before Second
 Sight requests a stop. It also rejects any result not attributed to
 `trajectory_hybrid`, and runs with liveness and the perception fast path
-disabled. The default 20-second fault-to-stop bound leaves more than 10 seconds
-before the source would end; override it only with a documented reason:
+disabled. It sets `--stop-after 1` by default: this is the explicit
+single-high-severity-discontinuity policy being measured, rather than the
+two-consecutive-anomaly policy used by the fast-path experiment. The default
+20-second fault-to-stop bound leaves more than 10 seconds before the source
+would end; override either setting only with a documented reason:
 
 ```bash
 SECOND_SIGHT_MAX_FAULT_TO_STOP_MS=20000 \
+SECOND_SIGHT_STOP_AFTER=1 \
 ./scripts/run-portable-live-latency-trial.sh \
   arm-portable-teleport-r01 \
   configs/scenarios/latency/teleport.yaml

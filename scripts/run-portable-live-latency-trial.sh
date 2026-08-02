@@ -41,6 +41,7 @@ stream_path="${SECOND_SIGHT_STREAM_PATH:-$root_dir/data/processed/openadkit-clea
 model_path="${SECOND_SIGHT_MODEL_PATH:-$root_dir/models/hybrid-25tree.joblib}"
 expected_path="${SECOND_SIGHT_EXPECTED_DECISION_PATH:-trajectory_hybrid}"
 max_fault_to_stop_ms="${SECOND_SIGHT_MAX_FAULT_TO_STOP_MS:-20000}"
+stop_after="${SECOND_SIGHT_STOP_AFTER:-1}"
 network="second-sight-portable-live-$run_id"
 node_container="second-sight-portable-node-$run_id"
 injector_container="second-sight-portable-injector-$run_id"
@@ -57,6 +58,10 @@ if [[ ! -f "$model_path" ]]; then
 fi
 if ! [[ "$max_fault_to_stop_ms" =~ ^[1-9][0-9]*([.][0-9]+)?$ ]]; then
   echo "SECOND_SIGHT_MAX_FAULT_TO_STOP_MS must be a positive number." >&2
+  exit 1
+fi
+if ! [[ "$stop_after" =~ ^[1-9][0-9]*$ ]]; then
+  echo "SECOND_SIGHT_STOP_AFTER must be a positive integer." >&2
   exit 1
 fi
 if ! docker info >/dev/null 2>&1; then
@@ -104,7 +109,8 @@ docker run --detach --rm --name "$node_container" "${common_ros_args[@]}" \
   --volume "$model_path:/model.joblib:ro" \
   second-sight-node:dev \
   python3 /opt/second-sight/second_sight_node.py \
-  --model /model.joblib --mode hybrid --reset-gap-seconds 2 >/dev/null
+  --model /model.joblib --mode hybrid --stop-after "$stop_after" \
+  --reset-gap-seconds 2 >/dev/null
 
 docker run --detach --rm --name "$injector_container" "${common_ros_args[@]}" \
   --volume "$scenario_path:/scenario.yaml:ro" \
@@ -191,6 +197,7 @@ PY
   echo "model_path=$model_path"
   echo "expected_decision_path=$expected_path"
   echo "max_fault_to_stop_ms=$max_fault_to_stop_ms"
+  echo "stop_after=$stop_after"
   echo "source_completed_before_decision=false"
   echo "git_revision=$(git -C "$root_dir" rev-parse HEAD)"
   echo "model_sha256=$(sha256sum "$model_path" | cut -d ' ' -f1)"
