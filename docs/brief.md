@@ -61,6 +61,7 @@ Key insight for the dev loop: the injector and Second Sight only see message str
 - **Primary dev machine:** user's PC — AMD Radeon RX 7900 XTX GPU, x86. Run Ubuntu 22.04 (dual-boot preferred over WSL2 for ROS GUI tooling). Full stack runs here: sim, injector, Second Sight, dashboard. GPU is not required (planning simulator is CPU-bound); AWSIM photoreal rendering is an optional stretch and officially targets NVIDIA, so treat AMD support as unverified.
 - **Secondary:** user's Mac (Apple Silicon assumed) — model training, analysis, bag-replay development.
 - **Benchmark/demo target:** AWS Graviton. Sim node: c8g.4xlarge (16 vCPU / 32 GB, ~100 GB disk). Second Sight node: small instance (e.g. c8g.large) or Oracle always-free Ampere A1 — two physically separate Arm machines make the isolation story strongest. Same region/VPC for low DDS latency. Check current instance pricing; stop instances when idle. New AWS accounts may need a vCPU quota increase to launch 16 vCPUs — request early.
+- **Current AWS cost ledger:** [`aws-costs.md`](aws-costs.md) records actual runtime, storage, and the continuing gp3 charge while the instance is stopped.
 - **Discipline:** no performance tuning on x86. Correctness on the PC; all numbers on Graviton.
 
 ## 7. Build steps

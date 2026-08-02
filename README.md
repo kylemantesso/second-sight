@@ -126,6 +126,8 @@ The live end-to-end measurement protocol is in
 [`docs/latency-instrumentation.md`](docs/latency-instrumentation.md).
 Use [`scripts/capture-container-resources.sh`](scripts/capture-container-resources.sh)
 alongside each live Arm run to retain the raw watchdog CPU and memory samples.
+The measured AWS development-cost ledger and ongoing storage cost are in
+[`docs/aws-costs.md`](docs/aws-costs.md).
 
 ## License
 
