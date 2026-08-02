@@ -110,11 +110,14 @@ def main() -> None:
     )
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--loop-delay", type=float, default=3.0)
+    parser.add_argument("--shutdown-delay", type=float, default=1.0)
     args = parser.parse_args()
     if args.rate <= 0:
         parser.error("--rate must be positive")
     if args.loop_delay < 0:
         parser.error("--loop-delay must be non-negative")
+    if args.shutdown_delay < 0:
+        parser.error("--shutdown-delay must be non-negative")
 
     events = list(iter_events(args.stream))
     if not events:
@@ -146,7 +149,7 @@ def main() -> None:
                     node.publish_trajectory(event, mapped_source_ns)
                 rclpy.spin_once(node, timeout_sec=0)
             if not args.loop:
-                time.sleep(1)
+                time.sleep(args.shutdown_delay)
                 break
             node.get_logger().info(f"restarting stream in {args.loop_delay:.1f} seconds")
             time.sleep(args.loop_delay)

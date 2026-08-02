@@ -30,7 +30,7 @@ trap cleanup EXIT
 cleanup
 
 docker network create "$NETWORK" >/dev/null
-docker run --detach --rm \
+docker run --detach \
   --name "$NODE_CONTAINER" \
   --network "$NETWORK" \
   --env ROS_DOMAIN_ID=88 \
@@ -60,7 +60,12 @@ docker run --rm \
   --volume "$ROOT_DIR:/workspace:ro" \
   --volume "$STREAM_PATH:/clean.jsonl:ro" \
   second-sight-node:dev \
-  python3 /workspace/components/fault_injector/replay_node.py /clean.jsonl
+  python3 /workspace/components/fault_injector/replay_node.py /clean.jsonl --shutdown-delay 0
+
+# A finite replay has no more messages after EOF. Stop the watchdog before its
+# liveness timer can correctly interpret that deliberate end-of-stream as a
+# real perception hang.
+docker stop --time 0 "$NODE_CONTAINER" >/dev/null
 
 observer_status="$(docker wait "$OBSERVER_CONTAINER")"
 docker logs "$OBSERVER_CONTAINER"
