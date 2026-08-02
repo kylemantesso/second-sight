@@ -1,4 +1,4 @@
-from second_sight.features import FEATURE_NAMES, extract_features
+from second_sight.features import FEATURE_NAMES, FeatureExtractor, extract_features
 
 
 def detection(timestamp: int, x: float) -> dict:
@@ -78,3 +78,14 @@ def test_flags_object_drop_while_object_is_near_ego() -> None:
     assert rows[1]["unexpected_object_drop_count"] == 1.0
     assert rows[1]["missing_near_object_count"] == 1.0
     assert rows[1]["max_missing_near_object_ticks"] == 1.0
+
+
+def test_detection_tick_builds_row_without_waiting_for_trajectory() -> None:
+    extractor = FeatureExtractor()
+
+    first = extractor.process_detection_tick(detection(0, 10.0))
+    second = extractor.process_detection_tick(empty_detection(100_000_000))
+
+    assert first["trajectory_point_count"] == 0.0
+    assert second["unmatched_previous_object_count"] == 1.0
+    assert second["object_count_delta"] == -1.0

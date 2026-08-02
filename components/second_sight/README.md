@@ -33,6 +33,21 @@ same-host monotonic timestamp at the anomaly decision and stop-request points;
 the detector never consumes fault ground-truth timing. Use the latency monitor
 to correlate these records with injector timing on Arm Linux.
 
+## Experimental perception fast path
+
+`--enable-perception-fast-path` runs the normal-only guardrails on every
+detection message, without waiting for a downstream trajectory. It is opt-in:
+the Isolation Forest remains trajectory-context dependent, and the fast path
+must pass clean-stream and Arm validation before it becomes the default.
+
+When using the integrated compose stack, pass the flag through explicitly:
+
+```bash
+SECOND_SIGHT_NODE_ARGS="--enable-perception-fast-path" \
+./scripts/run-live-latency-trial.sh arm-phantom-fast-r01 \
+  configs/scenarios/latency/phantom.yaml
+```
+
 ## Container
 
 ```bash

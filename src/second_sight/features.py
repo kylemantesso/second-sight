@@ -240,6 +240,7 @@ class FeatureExtractor:
 
     def __init__(self) -> None:
         self.latest_detection: dict[str, Any] | None = None
+        self.latest_trajectory: dict[str, Any] | None = None
         self.previous_tick_objects: list[dict[str, Any]] = []
         self.previous_count = 0
         self.previous_detection_time_ns: int | None = None
@@ -248,6 +249,45 @@ class FeatureExtractor:
         self.latest_ego_position: dict[str, float] | None = None
         self.tracks: list[ObjectTrack] = []
         self.tick_count = 0
+
+    def update_trajectory_context(self, event: dict[str, Any]) -> None:
+        """Retain trajectory context without advancing a scoring tick."""
+        if event["kind"] != "trajectory":
+            raise ValueError("trajectory context must be a trajectory event")
+        self.latest_trajectory = event
+        self.latest_ego_position = (
+            event["points"][0]["position"]
+            if event.get("points")
+            else {"x": 0.0, "y": 0.0, "z": 0.0}
+        )
+
+    def process_detection_tick(self, event: dict[str, Any]) -> dict[str, float | int]:
+        """Build a row immediately on a perception frame.
+
+        The latest trajectory is context only. This supports a fast,
+        perception-derived guardrail path; it does not make the forest a
+        perception-only model.
+        """
+        if event["kind"] != "detections":
+            raise ValueError("detection tick must be a detections event")
+        self.latest_detection = event
+        self.update_tracks(event.get("objects", []))
+        context = self.latest_trajectory or {
+            "schema_version": 1,
+            "kind": "trajectory",
+            "timestamp_ns": event["timestamp_ns"],
+            "recorded_ns": event_time_ns(event),
+            "frame_id": event.get("frame_id", "map"),
+            "points": [],
+        }
+        tick = {
+            **context,
+            # The row is scored when the message arrives. Keep its original
+            # header as the source timestamp so stale-frame guardrails work.
+            "timestamp_ns": event_time_ns(event),
+            "recorded_ns": event_time_ns(event),
+        }
+        return self._build_row(event, tick)
 
     def update_tracks(self, objects: list[dict[str, Any]]) -> None:
         unmatched_tracks = set(range(len(self.tracks)))
@@ -292,13 +332,21 @@ class FeatureExtractor:
             self.update_tracks(event.get("objects", []))
             return None
         if self.latest_detection is None:
+            self.update_trajectory_context(event)
             return None
 
-        detection_time_ns = event_time_ns(self.latest_detection)
-        current_objects = self.latest_detection.get("objects", [])
+        self.update_trajectory_context(event)
+        return self._build_row(self.latest_detection, event)
+
+    def _build_row(
+        self, detection: dict[str, Any], tick: dict[str, Any]
+    ) -> dict[str, float | int]:
+        """Build and commit one scoring row from detection and trajectory context."""
+        detection_time_ns = event_time_ns(detection)
+        current_objects = detection.get("objects", [])
         current_ego_position = (
-            event["points"][0]["position"]
-            if event.get("points")
+            tick["points"][0]["position"]
+            if tick.get("points")
             else {"x": 0.0, "y": 0.0, "z": 0.0}
         )
         self.latest_ego_position = current_ego_position
@@ -312,20 +360,20 @@ class FeatureExtractor:
             and vector_distance(track.position, current_ego_position) < 80
         ]
         row: dict[str, float | int] = {
-            "timestamp_ns": event_time_ns(event),
+            "timestamp_ns": event_time_ns(tick),
             **detection_features(
-                self.latest_detection,
+                detection,
                 baseline_objects,
                 baseline_count,
                 self.previous_detection_time_ns,
                 baseline_ego_position,
-                event,
+                tick,
             ),
             "missing_near_object_count": float(len(missing_near_tracks)),
             "max_missing_near_object_ticks": float(
                 max((track.missing_ticks for track in missing_near_tracks), default=0)
             ),
-            **trajectory_features(event.get("points", [])),
+            **trajectory_features(tick.get("points", [])),
         }
         self.previous_tick_objects = current_objects
         self.previous_count = len(current_objects)

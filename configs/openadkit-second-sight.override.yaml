@@ -37,6 +37,7 @@ services:
       python3 /opt/second-sight/second_sight_node.py
       --model /model.joblib
       --mode hybrid
+      ${SECOND_SIGHT_NODE_ARGS:-}
     depends_on:
       - planning-control
       - fault-injector

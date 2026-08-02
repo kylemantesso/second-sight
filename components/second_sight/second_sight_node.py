@@ -103,15 +103,25 @@ class SecondSightNode(Node):
         enable_safe_stop: bool,
         stop_after: int,
         reset_gap_seconds: float,
+        enable_perception_fast_path: bool,
+        fast_stop_after: int,
     ) -> None:
         super().__init__("second_sight")
         self.extractor = FeatureExtractor()
         self.scorer = SecondSightScorer(model_path, mode)
+        self.fast_extractor = FeatureExtractor() if enable_perception_fast_path else None
+        self.fast_scorer = (
+            SecondSightScorer(model_path, "guardrails") if enable_perception_fast_path else None
+        )
         self.enable_safe_stop = enable_safe_stop
         self.stop_after = stop_after
         self.consecutive_anomalies = 0
         self.stop_requested = False
         self.was_anomalous = False
+        self.fast_consecutive_anomalies = 0
+        self.fast_was_anomalous = False
+        self.enable_perception_fast_path = enable_perception_fast_path
+        self.fast_stop_after = fast_stop_after
         self.reset_gap_ns = round(reset_gap_seconds * 1_000_000_000)
         self.last_trajectory_ns: int | None = None
 
@@ -141,17 +151,23 @@ class SecondSightNode(Node):
         self.stop_client = self.create_client(SetStop, "/control/vehicle_cmd_gate/set_stop")
         self.get_logger().info(
             "Second Sight ready: "
-            f"mode={mode}, safe_stop={'enabled' if enable_safe_stop else 'dry-run'}"
+            f"mode={mode}, fast_path={'enabled' if enable_perception_fast_path else 'disabled'}, "
+            f"safe_stop={'enabled' if enable_safe_stop else 'dry-run'}"
         )
 
     def now_ns(self) -> int:
         return self.get_clock().now().nanoseconds
 
     def on_detections(self, message: DetectedObjects) -> None:
-        self.extractor.process_event(detection_event(message, self.now_ns()))
+        event = detection_event(message, self.now_ns())
+        self.extractor.process_event(event)
+        if self.fast_extractor is not None and self.fast_scorer is not None:
+            row = self.fast_extractor.process_detection_tick(event)
+            self.score_perception_guardrails(row)
 
     def on_trajectory(self, message: Trajectory) -> None:
         now_ns = self.now_ns()
+        event = trajectory_event(message, now_ns)
         if (
             self.reset_gap_ns > 0
             and self.last_trajectory_ns is not None
@@ -162,7 +178,9 @@ class SecondSightNode(Node):
             self.was_anomalous = False
             self.get_logger().info("reset dry-run state after source-stream gap")
         self.last_trajectory_ns = now_ns
-        row = self.extractor.process_event(trajectory_event(message, now_ns))
+        if self.fast_extractor is not None:
+            self.fast_extractor.update_trajectory_context(event)
+        row = self.extractor.process_event(event)
         if row is None:
             return
         started_ns = time.perf_counter_ns()
@@ -216,7 +234,43 @@ class SecondSightNode(Node):
         if self.consecutive_anomalies >= self.stop_after:
             self.request_safe_stop()
 
-    def request_safe_stop(self) -> None:
+    def score_perception_guardrails(self, row: dict[str, float | int]) -> None:
+        """Run the opt-in, perception-only guardrail path on every detection."""
+        assert self.fast_scorer is not None
+        started_ns = time.perf_counter_ns()
+        result = self.fast_scorer.score(row)
+        inference_ms = (time.perf_counter_ns() - started_ns) / 1_000_000
+        decision_monotonic_ns = time.monotonic_ns()
+        anomalous = result["anomalous"]
+        self.fast_consecutive_anomalies = (
+            self.fast_consecutive_anomalies + 1 if anomalous else 0
+        )
+        self.decision_publisher.publish(
+            String(
+                data=json.dumps(
+                    {
+                        "schema_version": 1,
+                        "event": "anomaly_decision",
+                        "path": "perception_guardrails",
+                        "anomalous": anomalous,
+                        "monotonic_ns": decision_monotonic_ns,
+                        "inference_ms": inference_ms,
+                        "consecutive_anomalies": self.fast_consecutive_anomalies,
+                    },
+                    separators=(",", ":"),
+                )
+            )
+        )
+        if anomalous and not self.fast_was_anomalous:
+            self.get_logger().warning(
+                "perception guardrail anomaly "
+                f"features={result['guardrail_features']} inference_ms={inference_ms:.3f}"
+            )
+        self.fast_was_anomalous = anomalous
+        if self.fast_consecutive_anomalies >= self.fast_stop_after:
+            self.request_safe_stop("perception_guardrails")
+
+    def request_safe_stop(self, path: str = "trajectory_hybrid") -> None:
         if self.stop_requested:
             return
         self.stop_requested = True
@@ -228,6 +282,7 @@ class SecondSightNode(Node):
                     {
                         "schema_version": 1,
                         "event": "safe_stop_requested",
+                        "path": path,
                         "monotonic_ns": request_monotonic_ns,
                         "dry_run": not self.enable_safe_stop,
                     },
@@ -269,10 +324,14 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     )
     parser.add_argument("--enable-safe-stop", action="store_true")
     parser.add_argument("--stop-after", type=int, default=2)
+    parser.add_argument("--enable-perception-fast-path", action="store_true")
+    parser.add_argument("--fast-stop-after", type=int, default=2)
     parser.add_argument("--reset-gap-seconds", type=float, default=0.0)
     args, ros_args = parser.parse_known_args()
     if args.stop_after <= 0:
         parser.error("--stop-after must be positive")
+    if args.fast_stop_after <= 0:
+        parser.error("--fast-stop-after must be positive")
     if args.reset_gap_seconds < 0:
         parser.error("--reset-gap-seconds must be non-negative")
     return args, ros_args
@@ -287,6 +346,8 @@ def main() -> None:
         args.enable_safe_stop,
         args.stop_after,
         args.reset_gap_seconds,
+        args.enable_perception_fast_path,
+        args.fast_stop_after,
     )
     try:
         rclpy.spin(node)

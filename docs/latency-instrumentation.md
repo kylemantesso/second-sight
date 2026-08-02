@@ -30,6 +30,11 @@ The current scope stops at *request issuance*. It does not measure Autoware's
 service response or physical vehicle deceleration. It also does not replace
 the held-out, varied-route fault-quality evaluation.
 
+The trajectory-context hybrid is the current reference path. An opt-in
+perception guardrail path is available for the next A/B experiment; it scores
+each detection without waiting for planning, but must not be presented as an
+optimization result until it passes clean-stream and Arm validation.
+
 ## Run on Arm Linux
 
 Start from a clean output path and use the 25-tree candidate selected in the
