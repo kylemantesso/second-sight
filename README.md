@@ -117,6 +117,11 @@ Native Arm benchmark methodology is in
 The initial official Arm Performix System Utilization and Code Hotspots profiles
 are recorded in
 [`reports/arm-performix-initial-profile.md`](reports/arm-performix-initial-profile.md).
+The Performix-led guardrail-only fast-path optimization and its native-Arm A/B
+result are recorded in
+[`reports/arm-guardrail-fast-path-optimization.md`](reports/arm-guardrail-fast-path-optimization.md).
+Its 82.7× p50 scoring reduction applies only to the opt-in perception
+guardrail path, not to end-to-end safe-stop latency or hybrid scoring.
 The current scoring-only Arm baseline is recorded in
 [`reports/arm-inference-baseline.md`](reports/arm-inference-baseline.md). The
 first Arm optimization comparison, reducing the forest from 300 to 25 trees,

@@ -87,6 +87,13 @@ Then invoke a recipe with the frozen 25-tree workload:
 The first System Utilization and Code Hotspots profiles are reported in
 [`../reports/arm-performix-initial-profile.md`](../reports/arm-performix-initial-profile.md).
 
+The resulting guardrail-only fast-path optimization is measured separately
+with the native benchmark harness, including reference-versus-optimized
+methodology and decision-equivalence checks, in
+[`../reports/arm-guardrail-fast-path-optimization.md`](../reports/arm-guardrail-fast-path-optimization.md).
+Its p50 result applies only to the opt-in perception guardrail path; it is not
+an end-to-end or hybrid-detector performance claim.
+
 Store raw benchmark outputs under `reports/benchmarks/` locally or in the
 project's private benchmark-artifact storage. Generated reports are excluded
 from Git; publish their methodology and relevant measured summary instead.
