@@ -39,7 +39,7 @@ Every published Arm result must identify:
 - CPU/memory measurement method; and
 - Arm Performix output where applicable.
 
-## Arm Performix status
+## Arm Performix
 
 Performix is operated from the macOS host and connects privately to the Arm
 target over SSH. The repeatable workload is
@@ -53,6 +53,39 @@ Code Hotspots or CPU Microarchitecture is warranted. Preserve the unmodified
 Performix run export in private artifact storage and record its run identifier,
 recipe parameters, target facts, and workload command in the Arm report. Do
 not substitute a local microbenchmark for Performix.
+
+The private target tunnel is started on the Mac in a separate terminal:
+
+```bash
+brew install --cask session-manager-plugin
+./scripts/start-performix-ssm-tunnel.sh
+```
+
+The cask installer asks for the local macOS administrator password. The tunnel
+uses AWS Systems Manager and local port 2222; it does not add an EC2 inbound
+SSH rule. After adding an authorised public key for the target user, configure
+the bundled Performix CLI once:
+
+```bash
+APX="/Applications/Arm Performix.app/Contents/assets/apx/apx"
+"$APX" target add \
+  "ubuntu@127.0.0.1:2222:/absolute/path/to/private-key:auth=key" \
+  --name second-sight-graviton --default --host-key-policy accept-new
+"$APX" target prepare --target second-sight-graviton
+```
+
+Then invoke a recipe with the frozen 25-tree workload:
+
+```bash
+"$APX" recipe run system_utilization \
+  --target second-sight-graviton \
+  --working-dir /home/ubuntu/second-sight \
+  --workload "/home/ubuntu/.local/bin/uv run python scripts/performix-watchdog-workload.py .benchmark-artifacts/clean-stream.jsonl --model models/hybrid-25tree.joblib --mode hybrid --warmup 5000" \
+  --use-shell --timeout 60 --deploy-tools --param interval=0.5
+```
+
+The first System Utilization and Code Hotspots profiles are reported in
+[`../reports/arm-performix-initial-profile.md`](../reports/arm-performix-initial-profile.md).
 
 Store raw benchmark outputs under `reports/benchmarks/` locally or in the
 project's private benchmark-artifact storage. Generated reports are excluded
