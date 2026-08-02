@@ -17,7 +17,7 @@ from std_msgs.msg import Bool, Float64, String
 from tier4_control_msgs.srv import SetStop
 
 from second_sight.features import FeatureExtractor
-from second_sight.model import SecondSightScorer
+from second_sight.model import PERCEPTION_GUARDRAIL_FEATURES, SecondSightScorer
 
 
 def vector(message: Any) -> dict[str, float]:
@@ -111,7 +111,11 @@ class SecondSightNode(Node):
         self.scorer = SecondSightScorer(model_path, mode)
         self.fast_extractor = FeatureExtractor() if enable_perception_fast_path else None
         self.fast_scorer = (
-            SecondSightScorer(model_path, "guardrails") if enable_perception_fast_path else None
+            SecondSightScorer(
+                model_path, "guardrails", guardrail_features=PERCEPTION_GUARDRAIL_FEATURES
+            )
+            if enable_perception_fast_path
+            else None
         )
         self.enable_safe_stop = enable_safe_stop
         self.stop_after = stop_after

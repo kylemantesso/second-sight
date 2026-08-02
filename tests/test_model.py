@@ -5,6 +5,7 @@ from second_sight.model import (
     MODEL_FEATURE_NAMES,
     learn_guardrails,
     score_guardrails,
+    select_guardrail_violations,
 )
 
 
@@ -25,3 +26,16 @@ def test_guardrails_accept_clean_values_and_flag_safety_feature_violations() -> 
     assert scores[0] > 0
     assert violations[0, GUARDRAIL_FEATURES.index("source_age_ms")] > 0
     assert violations[0, GUARDRAIL_FEATURES.index("min_classification_probability")] > 0
+
+
+def test_can_exclude_trajectory_dependent_guardrails_from_a_decision() -> None:
+    violations = np.zeros((1, len(GUARDRAIL_FEATURES)), dtype=np.float64)
+    violations[0, GUARDRAIL_FEATURES.index("max_relative_object_displacement_m")] = 4.0
+    violations[0, GUARDRAIL_FEATURES.index("object_count_delta")] = 2.0
+
+    scores, selected = select_guardrail_violations(
+        violations, ("object_count_delta", "source_age_ms")
+    )
+
+    assert scores.tolist() == [2.0]
+    assert selected.tolist() == [[2.0, 0.0]]

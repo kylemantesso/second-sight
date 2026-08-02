@@ -40,6 +40,17 @@ GUARDRAIL_FEATURES = (
     "centroid_shift_m",
     "source_age_ms",
 )
+PERCEPTION_GUARDRAIL_FEATURES = tuple(
+    name
+    for name in GUARDRAIL_FEATURES
+    if name
+    not in {
+        # These are calculated using the current/planning ego pose. A detection
+        # message alone cannot provide stable values for them.
+        "max_relative_object_displacement_m",
+        "unexpected_object_drop_count",
+    }
+)
 DEFAULT_GUARDRAIL_BOUND_QUANTILE = 0.005
 SENSITIVE_GUARDRAIL_BOUND_QUANTILE = 0.02
 SENSITIVE_GUARDRAIL_FEATURES = {
@@ -88,6 +99,20 @@ def score_guardrails(
     return violations.max(axis=1), violations
 
 
+def select_guardrail_violations(
+    violations: np.ndarray, features: tuple[str, ...]
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the maximum score and per-feature violations for a feature subset."""
+    unknown = set(features).difference(GUARDRAIL_FEATURES)
+    if unknown:
+        raise ValueError(f"unknown guardrail features: {sorted(unknown)}")
+    if not features:
+        raise ValueError("at least one guardrail feature is required")
+    indices = [GUARDRAIL_FEATURES.index(name) for name in features]
+    selected = violations[:, indices]
+    return selected.max(axis=1), selected
+
+
 def score_feature_matrix(
     bundle: dict[str, Any], matrix: np.ndarray, mode: str
 ) -> dict[str, np.ndarray | float]:
@@ -119,25 +144,48 @@ def score_feature_matrix(
 class SecondSightScorer:
     """Score incremental feature rows using a persisted detector bundle."""
 
-    def __init__(self, model_path: Path, mode: str = "hybrid") -> None:
+    def __init__(
+        self,
+        model_path: Path,
+        mode: str = "hybrid",
+        guardrail_features: tuple[str, ...] = GUARDRAIL_FEATURES,
+    ) -> None:
         self.bundle = joblib.load(model_path)
         self.mode = mode
+        self.guardrail_features = guardrail_features
+        # Validate once on construction instead of during a live decision.
+        select_guardrail_violations(
+            np.zeros((1, len(GUARDRAIL_FEATURES)), dtype=np.float64), guardrail_features
+        )
         if self.bundle["metadata"]["feature_names"] != list(MODEL_FEATURE_NAMES):
             raise ValueError("model feature schema does not match this package")
 
     def score(self, row: dict[str, float | int]) -> dict[str, Any]:
         matrix = np.asarray([[float(row[name]) for name in MODEL_FEATURE_NAMES]], dtype=np.float64)
         result = score_feature_matrix(self.bundle, matrix, self.mode)
-        violations = result["guardrail_violations"][0]
+        guardrail_scores, selected_violations = select_guardrail_violations(
+            result["guardrail_violations"], self.guardrail_features
+        )
+        violations = selected_violations[0]
         threshold = float(result["guardrail_threshold"])
+        forest_anomalous = bool(result["forest_scores"][0] >= result["forest_threshold"])
+        guardrail_anomalous = bool(guardrail_scores[0] > threshold)
+        if self.mode == "isolation_forest":
+            anomalous = forest_anomalous
+        elif self.mode == "guardrails":
+            anomalous = guardrail_anomalous
+        elif self.mode == "hybrid":
+            anomalous = forest_anomalous or guardrail_anomalous
+        else:
+            raise ValueError(f"unsupported detector mode: {self.mode}")
         return {
-            "anomalous": bool(result["predictions"][0]),
+            "anomalous": anomalous,
             "forest_score": float(result["forest_scores"][0]),
             "forest_threshold": float(result["forest_threshold"]),
-            "guardrail_score": float(result["guardrail_scores"][0]),
+            "guardrail_score": float(guardrail_scores[0]),
             "guardrail_features": [
                 name
-                for index, name in enumerate(GUARDRAIL_FEATURES)
+                for index, name in enumerate(self.guardrail_features)
                 if violations[index] > threshold
             ],
         }
