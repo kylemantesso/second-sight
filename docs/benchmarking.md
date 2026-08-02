@@ -41,17 +41,18 @@ Every published Arm result must identify:
 
 ## Arm Performix status
 
-Arm Performix is an Arm Account-gated service. On 2026-08-02, the official
-[Performix page](https://www.arm.com/products/development-tools/performix)
-redirected an unauthenticated request to Arm Account login, and no `performix`
-or `arm-performix` executable was installed on the Arm benchmark host. No
-Performix result has therefore been claimed or added to any report.
+Performix is operated from the macOS host and connects privately to the Arm
+target over SSH. The repeatable workload is
+[`scripts/performix-watchdog-workload.py`](../scripts/performix-watchdog-workload.py):
+it extracts frozen rows once, warms the 25-tree persisted model, then scores
+continuously until the recipe ends it. It is suitable for resource and hotspot
+profiling, but it is not a latency microbenchmark.
 
-Once an authorised project account has access, run the official Performix flow
-against the documented 25-tree watchdog workload on the same Graviton host,
-retain its unmodified output in the private artifact bucket, and add the run
-identifier, command/configuration, host facts, and output location to the
-relevant Arm report. Do not substitute a local microbenchmark for Performix.
+Start with the System Utilization recipe, then use its result to decide whether
+Code Hotspots or CPU Microarchitecture is warranted. Preserve the unmodified
+Performix run export in private artifact storage and record its run identifier,
+recipe parameters, target facts, and workload command in the Arm report. Do
+not substitute a local microbenchmark for Performix.
 
 Store raw benchmark outputs under `reports/benchmarks/` locally or in the
 project's private benchmark-artifact storage. Generated reports are excluded
