@@ -93,9 +93,11 @@ containers are healthy and before the fault interval begins:
 ```
 
 It records Docker's one-shot `cpu_percent`, `memory_usage_limit`, and
-`memory_percent` values once per second for `second-sight`, the fault injector,
-the simulator, and planning control. The raw TSV must accompany the latency
-JSONL in private artifact storage. For each aligned sample, report watchdog
+`memory_percent` values for `second-sight`, the fault injector, the simulator,
+and planning control. The requested interval is applied *after* Docker returns
+each snapshot, so use the TSV timestamps to establish actual cadence. The raw
+TSV must accompany the latency JSONL in private artifact storage. For each
+aligned sample, report watchdog
 CPU as its Docker CPU percentage divided by the sum of those four core
 containers' CPU percentages. State this denominator explicitly; it is not a
 whole-host CPU percentage and it excludes the dashboard and visualizer.

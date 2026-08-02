@@ -119,6 +119,9 @@ The current scoring-only Arm baseline is recorded in
 first Arm optimization comparison, reducing the forest from 300 to 25 trees,
 is recorded in
 [`reports/arm-25tree-optimization.md`](reports/arm-25tree-optimization.md).
+The initial all-fault live Arm validation, including explicit statistical and
+measurement limits, is in
+[`reports/arm-live-latency-validation.md`](reports/arm-live-latency-validation.md).
 The live end-to-end measurement protocol is in
 [`docs/latency-instrumentation.md`](docs/latency-instrumentation.md).
 Use [`scripts/capture-container-resources.sh`](scripts/capture-container-resources.sh)
