@@ -49,12 +49,26 @@ class LatencyTracker:
 
     def __init__(self) -> None:
         self.faults: list[FaultTiming] = []
+        self.unmatched_stops: list[tuple[int, str | None]] = []
 
     def record_fault(
         self, fault_id: str, fault_type: str, injected_monotonic_ns: int
     ) -> dict[str, Any]:
         timing = FaultTiming(fault_id, fault_type, injected_monotonic_ns)
         self.faults.append(timing)
+        # A stop can arrive first because its ROS topic is independent of the
+        # injector's measurement topic. Its producer timestamp still proves
+        # whether it occurred after this injected fault.
+        candidates = [
+            stop
+            for stop in self.unmatched_stops
+            if stop[0] >= injected_monotonic_ns
+        ]
+        if candidates:
+            stop_ns, stop_path = min(candidates)
+            timing.safe_stop_monotonic_ns = stop_ns
+            timing.safe_stop_path = stop_path
+            self.unmatched_stops.remove((stop_ns, stop_path))
         return {
             "event": "fault_injected",
             "fault_id": fault_id,
@@ -149,6 +163,7 @@ class LatencyTracker:
             and timing.injected_monotonic_ns <= safe_stop_monotonic_ns
         ]
         if not candidates:
+            self.unmatched_stops.append((safe_stop_monotonic_ns, path))
             return None
         timing = candidates[-1]
         timing.safe_stop_monotonic_ns = safe_stop_monotonic_ns

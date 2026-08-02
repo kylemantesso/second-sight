@@ -26,10 +26,11 @@ cross-instance claim: each host has a different monotonic clock. A later
 two-machine experiment must use PTP/NTP offset validation or a purpose-built
 round-trip protocol and report its clock uncertainty.
 
-The decision and stop messages travel on separate ROS topics, so the monitor
-buffers a stop that DDS delivers before its preceding decision and writes it
-once the decision arrives. This retains the original monotonic timestamps;
-it does not substitute receive time for an unavailable send time.
+The fault, decision, and stop messages travel on separate ROS topics, so the
+monitor buffers a stop that DDS delivers before its preceding fault or
+decision, then writes it once both are known. It matches only a stop whose
+producer monotonic timestamp follows that fault. This retains the original
+timestamps; it does not substitute receive time for an unavailable send time.
 
 The current scope stops at *request issuance*. It does not measure Autoware's
 service response or physical vehicle deceleration. It also does not replace
