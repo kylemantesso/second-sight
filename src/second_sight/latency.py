@@ -35,6 +35,7 @@ class FaultTiming:
     decision_path: str | None = None
     safe_stop_monotonic_ns: int | None = None
     safe_stop_path: str | None = None
+    safe_stop_emitted: bool = False
 
 
 class LatencyTracker:
@@ -94,43 +95,65 @@ class LatencyTracker:
             measurement["decision_path"] = path
         return measurement
 
-    def record_safe_stop(
-        self, safe_stop_monotonic_ns: int, path: str | None = None
-    ) -> dict[str, Any] | None:
+    def completed_safe_stop(self) -> dict[str, Any] | None:
+        """Return one previously buffered stop once its decision is known.
+
+        Decision and stop telemetry use different ROS topics. DDS preserves
+        order within each topic, but a subscriber can observe the stop before
+        its preceding decision. Buffering that stop preserves the true
+        monotonic timestamps instead of losing a valid near-zero interval.
+        """
         candidates = [
             timing
             for timing in self.faults
             if timing.decision_monotonic_ns is not None
-            and timing.safe_stop_monotonic_ns is None
-            and timing.decision_monotonic_ns <= safe_stop_monotonic_ns
+            and timing.safe_stop_monotonic_ns is not None
+            and not timing.safe_stop_emitted
         ]
         if not candidates:
             return None
         timing = candidates[-1]
-        timing.safe_stop_monotonic_ns = safe_stop_monotonic_ns
-        timing.safe_stop_path = path
+        timing.safe_stop_emitted = True
+        assert timing.safe_stop_monotonic_ns is not None
+        assert timing.decision_monotonic_ns is not None
         measurement = {
             "event": "safe_stop_requested",
             "fault_id": timing.fault_id,
             "fault_type": timing.fault_type,
             "injected_monotonic_ns": timing.injected_monotonic_ns,
             "decision_monotonic_ns": timing.decision_monotonic_ns,
-            "safe_stop_monotonic_ns": safe_stop_monotonic_ns,
+            "safe_stop_monotonic_ns": timing.safe_stop_monotonic_ns,
             "fault_to_anomaly_ms": milliseconds(
                 timing.decision_monotonic_ns, timing.injected_monotonic_ns
             ),
             "fault_to_safe_stop_ms": milliseconds(
-                safe_stop_monotonic_ns, timing.injected_monotonic_ns
+                timing.safe_stop_monotonic_ns, timing.injected_monotonic_ns
             ),
             "anomaly_to_safe_stop_ms": milliseconds(
-                safe_stop_monotonic_ns, timing.decision_monotonic_ns
+                timing.safe_stop_monotonic_ns, timing.decision_monotonic_ns
             ),
         }
         if timing.decision_path is not None:
             measurement["decision_path"] = timing.decision_path
-        if path is not None:
-            measurement["safe_stop_path"] = path
+        if timing.safe_stop_path is not None:
+            measurement["safe_stop_path"] = timing.safe_stop_path
         return measurement
+
+    def record_safe_stop(
+        self, safe_stop_monotonic_ns: int, path: str | None = None
+    ) -> dict[str, Any] | None:
+        candidates = [
+            timing
+            for timing in self.faults
+            if timing.safe_stop_monotonic_ns is None
+            and timing.injected_monotonic_ns <= safe_stop_monotonic_ns
+        ]
+        if not candidates:
+            return None
+        timing = candidates[-1]
+        timing.safe_stop_monotonic_ns = safe_stop_monotonic_ns
+        timing.safe_stop_path = path
+        return self.completed_safe_stop()
 
 
 def latency_percentiles(values: list[float]) -> dict[str, float]:

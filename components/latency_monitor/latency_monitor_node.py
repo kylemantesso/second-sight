@@ -82,6 +82,9 @@ class LatencyMonitorNode(Node):
             return
         if measurement is not None:
             self.write(measurement)
+        completed_stop = self.tracker.completed_safe_stop()
+        if completed_stop is not None:
+            self.write(completed_stop)
 
     def on_safe_stop(self, message: String) -> None:
         payload = self.payload(message, "/second_sight/latency/safe_stop_requested")
