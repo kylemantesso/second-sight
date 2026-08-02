@@ -54,6 +54,21 @@ tail -f "reports/measurements/$output"
 ./scripts/openadkit.sh integrated-stop
 ```
 
+For a repeatable trial that starts the sampler, waits for a safe-stop timing
+event, saves provenance, and tears the stack down, use:
+
+```bash
+./scripts/run-live-latency-trial.sh \
+  arm-phantom-r01 \
+  configs/scenarios/latency/phantom.yaml \
+  180
+```
+
+The runner writes `<run>.jsonl`, `<run>-resources.tsv`, and
+`<run>-metadata.txt` under `reports/measurements/`. It deliberately does not
+upload or aggregate artifacts; preserve successful runs in private storage only
+after inspecting them.
+
 Run each fault type in a fresh process. The six one-fault scenarios under
 [`configs/scenarios/latency/`](../configs/scenarios/latency/) are calibrated to
 the same transformations as the frozen combined evaluation. A safe-stop request
