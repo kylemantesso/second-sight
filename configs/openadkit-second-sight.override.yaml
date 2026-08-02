@@ -48,6 +48,8 @@ services:
     environment:
       - ROS_DOMAIN_ID=88
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - HOME=/tmp
+      - ROS_LOG_DIR=/tmp/ros-log
     volumes:
       - ${SECOND_SIGHT_ROOT}/reports/measurements:/measurements
     command: >-
