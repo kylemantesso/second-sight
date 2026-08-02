@@ -2,8 +2,8 @@
 
 This ledger records the measured AWS cost of Second Sight development in the
 Sydney region. It is an estimate before tax: AWS Cost Explorer can take up to
-24 hours to show current-day usage, so its `2026-08-02` result was still $0 at
-the time of this update.
+24 hours to show current-day usage, so its `2026-08-03` result can lag the
+sessions listed below.
 
 ## Compute used
 
@@ -25,7 +25,8 @@ that minimum.
 | 2026-08-02 19:20:06 | 19:34:41 | 14m 35s | $0.20183 |
 | 2026-08-02 19:55:37 | 20:12:37 | 17m 00s | $0.23528 |
 | 2026-08-02 20:37:42 | 20:43:11 | 5m 29s | $0.07589 |
-| **Total** |  | **1h 37m 26s** | **$1.34848** |
+| 2026-08-03 08:33:50 | 08:44:38 | 10m 48s | $0.14947 |
+| **Total** |  | **1h 48m 14s** | **$1.49795** |
 
 The instance is currently **stopped**, so this compute charge is no longer
 increasing. Re-starting it costs about **$0.01384 per minute** while it runs.
@@ -40,26 +41,27 @@ US$0.096 per GB-month:
 - about **$0.3156/day**; and
 - about **$0.01315/hour**.
 
-From volume creation at 12:17:29 until the latest confirmed stop at 20:43:11,
-its pro-rated storage cost is about **$0.11238**. It continues to accrue at the
+From volume creation at 2026-08-02 12:17:29 until the latest confirmed stop at
+2026-08-03 08:44:38, its pro-rated storage cost is about **$0.27270**. It
+continues to accrue at the
 rate above even though the instance is stopped. Do not delete the volume
 without first preserving or intentionally discarding its cached Arm64 images
 and artifacts.
 
 ## Artifact storage and total to date
 
-The private benchmark bucket holds 166 objects totaling 40,782,410 bytes
-(about 40.8 MB). It includes the repeated fast-path artifacts plus the causal
-portable teleport traces, source logs, provenance, summaries, and checksums.
-Storage and request charges remain below one cent at this scale; same-region
-EC2-to-S3 transfers do not materially change this estimate.
+The private benchmark bucket holds 169 objects totaling 44,521,768 bytes
+(about 44.5 MB). It includes the repeated fast-path artifacts, causal portable
+teleport traces, and the initial Arm Performix exports with checksums. Storage
+and request charges remain below one cent at this scale; same-region EC2-to-S3
+transfers do not materially change this estimate.
 
-| Category | Estimated cost through 2026-08-02 19:34 AEST |
+| Category | Estimated cost through 2026-08-03 08:44 AEST |
 | --- | ---: |
-| EC2 compute | $1.34848 |
-| Pro-rated 100 GB gp3 EBS | ~$0.11238 |
+| EC2 compute | $1.49795 |
+| Pro-rated 100 GB gp3 EBS | ~$0.27270 |
 | S3 storage and requests | < $0.01 |
-| **Total before tax** | **about $1.47** |
+| **Total before tax** | **about $1.78** |
 
 Check Cost Explorer the following day for the settled invoice value. Keep the
 instance stopped whenever it is not actively benchmarking; the EBS volume is
