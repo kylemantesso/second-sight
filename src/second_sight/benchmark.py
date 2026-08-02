@@ -7,7 +7,7 @@ import json
 import platform
 import statistics
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -66,7 +66,7 @@ def benchmark_model(
     report = {
         "schema_version": 1,
         "kind": "inference_microbenchmark",
-        "created_at_utc": datetime.now(UTC).isoformat(),
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "host": {
             "label": host_label or platform.node(),
             "machine": platform.machine(),

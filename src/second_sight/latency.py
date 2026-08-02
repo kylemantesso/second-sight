@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -211,7 +211,7 @@ def aggregate_latency_runs(paths: list[Path], output: Path) -> dict[str, Any]:
     report = {
         "schema_version": 1,
         "kind": "live_latency_summary",
-        "created_at_utc": datetime.now(UTC).isoformat(),
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "trace_count": len(paths),
         "groups": summaries,
     }
