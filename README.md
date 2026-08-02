@@ -122,6 +122,10 @@ result are recorded in
 [`reports/arm-guardrail-fast-path-optimization.md`](reports/arm-guardrail-fast-path-optimization.md).
 Its 82.7× p50 scoring reduction applies only to the opt-in perception
 guardrail path, not to end-to-end safe-stop latency or hybrid scoring.
+The post-optimization five-run-per-fault live Arm validation is in
+[`reports/arm-optimized-fast-path-live-validation.md`](reports/arm-optimized-fast-path-live-validation.md).
+It measures safe-stop-request issuance on one host and explicitly excludes
+teleport, cross-machine latency, and vehicle response.
 The current scoring-only Arm baseline is recorded in
 [`reports/arm-inference-baseline.md`](reports/arm-inference-baseline.md). The
 first Arm optimization comparison, reducing the forest from 300 to 25 trees,

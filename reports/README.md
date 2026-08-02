@@ -8,3 +8,5 @@ The Arm Performix hotspot profile is in
 [`arm-performix-initial-profile.md`](arm-performix-initial-profile.md); its
 guardrail-only fast-path A/B follow-up is in
 [`arm-guardrail-fast-path-optimization.md`](arm-guardrail-fast-path-optimization.md).
+The post-optimization, repeated live Arm validation is in
+[`arm-optimized-fast-path-live-validation.md`](arm-optimized-fast-path-live-validation.md).

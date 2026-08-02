@@ -203,3 +203,7 @@ jump that can otherwise trigger an immediate-discontinuity policy before the
 fault. The selected window has no comparable pre-fault relative-displacement
 spike. This is an explicit deterministic harness input, not evidence of a
 general false-positive rate; varied held-out clean routes remain required.
+
+The post-optimization five-run Arm result, its artifact manifest, and its
+strict scope limits are published in
+[`../reports/arm-optimized-fast-path-live-validation.md`](../reports/arm-optimized-fast-path-live-validation.md).
