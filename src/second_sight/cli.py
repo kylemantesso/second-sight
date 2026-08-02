@@ -12,6 +12,7 @@ from second_sight import __version__
 from second_sight.benchmark import benchmark_model
 from second_sight.faults import inject_file, load_scenario
 from second_sight.features import extract_features, valid_feature_csv, write_feature_csv
+from second_sight.latency import aggregate_latency_runs
 from second_sight.model import evaluate_model, train_model
 from second_sight.stream import iter_events, summarize_stream
 
@@ -93,6 +94,11 @@ def build_parser() -> argparse.ArgumentParser:
     benchmark_parser.add_argument(
         "--host-label", help="operator-supplied host or instance label recorded in the report"
     )
+    latency_report_parser = subcommands.add_parser(
+        "latency-report", help="aggregate completed live fault-to-stop JSONL traces"
+    )
+    latency_report_parser.add_argument("traces", type=Path, nargs="+")
+    latency_report_parser.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -193,6 +199,17 @@ def main() -> int:
         print(f"Samples:   {report['sample_count']}")
         print(f"p50:       {latency['p50']:.1f} us")
         print(f"p99:       {latency['p99']:.1f} us")
+        return 0
+    if args.command == "latency-report":
+        report = aggregate_latency_runs(args.traces, args.output)
+        print(f"Summary: {args.output}")
+        print(f"Traces:  {report['trace_count']}")
+        for group in report["groups"]:
+            latency = group["fault_to_safe_stop_ms"]
+            print(
+                f"{group['fault_id']:<24} n={group['run_count']} "
+                f"p50={latency['p50']:.3f} ms p99={latency['p99']:.3f} ms"
+            )
         return 0
     return 2
 

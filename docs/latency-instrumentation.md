@@ -123,3 +123,25 @@ any uninstrumented simulator, stop-service, and vehicle-response stages.
 The monitor's raw records are not committed. `reports/measurements/` is
 ignored so generated data cannot accidentally become a public benchmark
 artifact.
+
+## Repeat and summarize a validation set
+
+On the Arm host, run a bounded set of fresh trials with both opt-in watchdog
+paths enabled. Five repetitions is a development validation set, not a final
+confidence demonstration:
+
+```bash
+./scripts/run-live-fast-path-validation.sh arm-fast-20260802 5
+```
+
+After copying the private JSONL traces to a local ignored measurement directory,
+write a machine-readable percentile summary:
+
+```bash
+uv run second-sight latency-report reports/measurements/arm-fast-20260802-*.jsonl \
+  --output reports/measurements/arm-fast-20260802-summary.json
+```
+
+The report groups runs by fault and first decision path, and emits min, p50,
+p95, p99, and max for the three live latency intervals. It rejects a trace
+without exactly one stop request rather than silently mixing incomplete runs.

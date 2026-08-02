@@ -7,8 +7,14 @@ tested without a ROS installation. Producers must use the same host's
 
 from __future__ import annotations
 
+import json
+from collections import defaultdict
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 
 def milliseconds(later_ns: int, earlier_ns: int) -> float:
@@ -125,3 +131,90 @@ class LatencyTracker:
         if path is not None:
             measurement["safe_stop_path"] = path
         return measurement
+
+
+def latency_percentiles(values: list[float]) -> dict[str, float]:
+    """Return standard percentiles for a non-empty run-level measurement list."""
+    if not values:
+        raise ValueError("cannot summarize an empty latency sample")
+    sample = np.asarray(values, dtype=np.float64)
+    return {
+        "min": float(sample.min()),
+        "p50": float(np.percentile(sample, 50)),
+        "p95": float(np.percentile(sample, 95)),
+        "p99": float(np.percentile(sample, 99)),
+        "max": float(sample.max()),
+    }
+
+
+def aggregate_latency_runs(paths: list[Path], output: Path) -> dict[str, Any]:
+    """Aggregate one completed fault-to-stop JSONL trace per input path.
+
+    The raw per-run traces remain the source of truth. This summary only
+    accepts files containing exactly one safe-stop record so accidental mixed
+    scenario traces cannot silently distort percentiles.
+    """
+    if not paths:
+        raise ValueError("at least one latency trace is required")
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    for path in paths:
+        try:
+            records = [
+                json.loads(line)
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+        except json.JSONDecodeError as error:
+            raise ValueError(f"{path}: invalid JSONL") from error
+        stops = [record for record in records if record.get("event") == "safe_stop_requested"]
+        if len(stops) != 1:
+            raise ValueError(f"{path}: expected exactly one safe-stop record, found {len(stops)}")
+        stop = stops[0]
+        try:
+            fault_id = str(stop["fault_id"])
+            fault_type = str(stop["fault_type"])
+            fault_to_anomaly_ms = float(stop["fault_to_anomaly_ms"])
+            fault_to_safe_stop_ms = float(stop["fault_to_safe_stop_ms"])
+            anomaly_to_safe_stop_ms = float(stop["anomaly_to_safe_stop_ms"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError(f"{path}: malformed safe-stop record") from error
+        decision_path = str(stop.get("decision_path", "unknown"))
+        groups[(fault_id, fault_type, decision_path)].append(
+            {
+                "path": str(path),
+                "fault_to_anomaly_ms": fault_to_anomaly_ms,
+                "fault_to_safe_stop_ms": fault_to_safe_stop_ms,
+                "anomaly_to_safe_stop_ms": anomaly_to_safe_stop_ms,
+            }
+        )
+
+    summaries = []
+    for (fault_id, fault_type, decision_path), runs in sorted(groups.items()):
+        summaries.append(
+            {
+                "fault_id": fault_id,
+                "fault_type": fault_type,
+                "decision_path": decision_path,
+                "run_count": len(runs),
+                "fault_to_anomaly_ms": latency_percentiles(
+                    [run["fault_to_anomaly_ms"] for run in runs]
+                ),
+                "fault_to_safe_stop_ms": latency_percentiles(
+                    [run["fault_to_safe_stop_ms"] for run in runs]
+                ),
+                "anomaly_to_safe_stop_ms": latency_percentiles(
+                    [run["anomaly_to_safe_stop_ms"] for run in runs]
+                ),
+                "source_paths": [run["path"] for run in runs],
+            }
+        )
+    report = {
+        "schema_version": 1,
+        "kind": "live_latency_summary",
+        "created_at_utc": datetime.now(UTC).isoformat(),
+        "trace_count": len(paths),
+        "groups": summaries,
+    }
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    return report
