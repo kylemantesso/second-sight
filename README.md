@@ -124,8 +124,9 @@ measurement limits, is in
 [`reports/arm-live-latency-validation.md`](reports/arm-live-latency-validation.md).
 The initial opt-in perception fast-path validation is in
 [`reports/arm-fast-path-validation.md`](reports/arm-fast-path-validation.md);
-it is one run per fault and explicitly records the unsupported fast teleport
-case, so it is not yet a final benchmark claim.
+the five-run-per-fault Arm validation is in
+[`reports/arm-fast-path-repeated-validation.md`](reports/arm-fast-path-repeated-validation.md).
+Both explicitly exclude unvalidated teleport latency.
 The live end-to-end measurement protocol is in
 [`docs/latency-instrumentation.md`](docs/latency-instrumentation.md).
 Use [`scripts/capture-container-resources.sh`](scripts/capture-container-resources.sh)

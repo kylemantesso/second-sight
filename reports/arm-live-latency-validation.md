@@ -1,5 +1,12 @@
 # Arm Live Latency Validation
 
+> Superseded for timing interpretation: the later repeated validation found
+> that the short simulator can naturally end before a delayed trajectory-gated
+> decision, allowing end-of-stream behavior to be associated with the pending
+> fault. Preserve this report as historical instrumentation evidence only; do
+> not cite its latency table. The valid repeated fast-path results are in
+> [`arm-fast-path-repeated-validation.md`](arm-fast-path-repeated-validation.md).
+
 This is an initial native-Arm validation of the live Second Sight path. Every
 one-fault scenario produced a fault timestamp, anomaly decision, and dry-run
 safe-stop request. It is **not** a statistical latency benchmark: there is one

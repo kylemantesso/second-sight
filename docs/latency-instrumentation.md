@@ -128,7 +128,9 @@ artifact.
 
 On the Arm host, run a bounded set of fresh trials with both opt-in watchdog
 paths enabled. Five repetitions is a development validation set, not a final
-confidence demonstration:
+confidence demonstration. The harness covers the four validated fast
+perception faults and liveness; it deliberately excludes teleport until its
+trajectory-hybrid path can be measured before simulator end-of-stream:
 
 ```bash
 ./scripts/run-live-fast-path-validation.sh arm-fast-20260802 5

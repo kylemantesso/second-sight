@@ -14,7 +14,7 @@ of perception messages after the stream has started.
 The fast guardrails deliberately exclude `max_relative_object_displacement_m`
 and `unexpected_object_drop_count`: their values require same-tick ego-pose
 context, and using them from a cached trajectory produced clean-stream false
-positives. Teleport remains covered by the reference trajectory-hybrid path.
+positives. Teleport has no valid live latency result yet.
 
 ## Environment and validation protocol
 
@@ -44,7 +44,7 @@ artifacts, not committed to the repository.
 | Vanish | `perception_guardrails` | 2.610 ms | 102.696 ms | 1.517 ms |
 | Phantom | `perception_guardrails` | 3.039 ms | 102.869 ms | 1.492 ms |
 | Freeze | `perception_guardrails` | 2.845 ms | 102.810 ms | 1.558 ms |
-| Teleport | `trajectory_hybrid` | 14,538.225 ms | 14,637.385 ms | 1.577 ms |
+| Teleport | not valid | not reported | not reported | not reported |
 | Confidence collapse | `perception_guardrails` | 2.908 ms | 102.873 ms | 1.574 ms |
 | Perception hang | `perception_liveness_timeout` | 238.402 ms | 238.921 ms | n/a (timer) |
 
@@ -55,18 +55,21 @@ for 300 ms from the last received detection. Its interval starts at the
 injector's first suppressed scheduled detection, so the observed 238 ms is not
 the timeout setting itself.
 
-The first five rows were recorded at source revision `6f49642`; the liveness
-row was recorded at `3496de7`. Both use the same model hash and Arm host. The
-legacy decision event did not carry its path in the earlier trace; the
-teleport stop event identifies `trajectory_hybrid`. Current instrumentation
-records both decision and stop paths.
+The four perception-corruption rows were recorded at source revision `6f49642`;
+the liveness row was recorded at `3496de7`. Both use the same model hash and
+Arm host.
+Subsequent five-run validation showed that the earlier teleport record arrived
+near the simulator's normal end-of-stream, where a liveness/cleanup event can
+be incorrectly associated with the pending teleport fault. Its values have
+therefore been removed from this report. Current instrumentation records both
+decision and stop paths.
 
 ## Interpretation and limits
 
 The fast path reached the first decision in roughly 3 ms for four injected
 perception corruptions and the liveness timer stopped a stream hang in under
-239 ms in these single runs. It did **not** accelerate teleport: that fault is
-currently detected by the trajectory-hybrid reference path.
+239 ms in these single runs. It did **not** establish teleport detection
+latency.
 
 Do not turn these values into p50/p95/p99 figures, detection rates, or a
 general safety claim. The next validation work is to repeat independent trials

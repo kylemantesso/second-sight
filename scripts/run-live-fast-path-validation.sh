@@ -27,7 +27,10 @@ fi
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export SECOND_SIGHT_NODE_ARGS="${SECOND_SIGHT_NODE_ARGS:---enable-perception-fast-path --enable-perception-liveness}"
-scenarios=(vanish phantom freeze teleport confidence-collapse liveness)
+# Teleport is deliberately excluded: the current short simulator scenario
+# reaches its natural end before the trajectory-hybrid reference path can be
+# causally validated. Do not turn end-of-stream liveness into teleport timing.
+scenarios=(vanish phantom freeze confidence-collapse liveness)
 
 for scenario in "${scenarios[@]}"; do
   for ((repetition = 1; repetition <= repetitions; repetition++)); do

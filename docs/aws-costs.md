@@ -21,13 +21,9 @@ that minimum.
 | 2026-08-02 14:28:19 | 14:32:16 | 3m 57s | $0.05467 |
 | 2026-08-02 15:07:14 | 15:14:42 | 7m 28s | $0.10334 |
 | 2026-08-02 18:05:29 | 18:20:49 | 15m 20s | $0.21221 |
-| 2026-08-02 18:45:33 | 19:08:00* | ~22m 27s | ~$0.31071 |
-| **Total** |  | **~1h 01m 27s** | **~$0.85047** |
-
-\*The instance was confirmed stopped before 19:08 AEST. The stop event can
-take time to appear in CloudTrail, so this row conservatively rounds the
-end time up to 19:08:00. The estimated charge is therefore an upper bound
-pending the settled AWS invoice.
+| 2026-08-02 18:45:33 | 19:06:55 | 21m 22s | $0.29571 |
+| 2026-08-02 19:20:06 | 19:34:41 | 14m 35s | $0.20183 |
+| **Total** |  | **1h 14m 57s** | **$1.03731** |
 
 The instance is currently **stopped**, so this compute charge is no longer
 increasing. Re-starting it costs about **$0.01384 per minute** while it runs.
@@ -42,25 +38,25 @@ US$0.096 per GB-month:
 - about **$0.3156/day**; and
 - about **$0.01315/hour**.
 
-From volume creation at 12:17:29 until the latest confirmed stop by 19:08,
-its pro-rated storage cost is about **$0.09122**. It continues to accrue at the
+From volume creation at 12:17:29 until the latest confirmed stop at 19:34:41,
+its pro-rated storage cost is about **$0.09716**. It continues to accrue at the
 rate above even though the instance is stopped. Do not delete the volume
 without first preserving or intentionally discarding its cached Arm64 images
 and artifacts.
 
 ## Artifact storage and total to date
 
-The private benchmark bucket holds 54 objects totaling 40,671,535 bytes
-(about 40.7 MB). It now includes the 18 artifacts from the initial fast-path
+The private benchmark bucket holds 144 objects totaling 40,763,746 bytes
+(about 40.8 MB). It now includes the 90 artifacts from repeated fast-path
 validation. Storage and request charges remain below one cent at this scale;
 same-region EC2-to-S3 transfers do not materially change this estimate.
 
-| Category | Estimated cost through 2026-08-02 19:08 AEST |
+| Category | Estimated cost through 2026-08-02 19:34 AEST |
 | --- | ---: |
-| EC2 compute | ~$0.85047 |
-| Pro-rated 100 GB gp3 EBS | ~$0.09122 |
+| EC2 compute | $1.03731 |
+| Pro-rated 100 GB gp3 EBS | ~$0.09716 |
 | S3 storage and requests | < $0.01 |
-| **Total before tax** | **about $0.95** |
+| **Total before tax** | **about $1.14** |
 
 Check Cost Explorer the following day for the settled invoice value. Keep the
 instance stopped whenever it is not actively benchmarking; the EBS volume is
