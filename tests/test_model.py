@@ -29,14 +29,16 @@ def test_guardrails_accept_clean_values_and_flag_safety_feature_violations() -> 
     assert violations[0, GUARDRAIL_FEATURES.index("min_classification_probability")] > 0
 
 
-def test_fast_path_excludes_only_the_same_tick_ego_dependent_guardrail() -> None:
+def test_fast_path_excludes_trajectory_dependent_guardrails() -> None:
     violations = np.zeros((1, len(GUARDRAIL_FEATURES)), dtype=np.float64)
     violations[0, GUARDRAIL_FEATURES.index("max_relative_object_displacement_m")] = 4.0
     violations[0, GUARDRAIL_FEATURES.index("object_count_delta")] = 2.0
 
-    scores, selected = select_guardrail_violations(violations, PERCEPTION_GUARDRAIL_FEATURES)
+    scores, selected = select_guardrail_violations(
+        violations, ("object_count_delta", "source_age_ms")
+    )
 
-    assert scores.tolist() == [4.0]
-    assert "max_relative_object_displacement_m" in PERCEPTION_GUARDRAIL_FEATURES
+    assert scores.tolist() == [2.0]
+    assert "max_relative_object_displacement_m" not in PERCEPTION_GUARDRAIL_FEATURES
     assert "unexpected_object_drop_count" not in PERCEPTION_GUARDRAIL_FEATURES
-    assert selected.shape == (1, len(PERCEPTION_GUARDRAIL_FEATURES))
+    assert selected.tolist() == [[2.0, 0.0]]

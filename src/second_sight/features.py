@@ -261,20 +261,25 @@ class FeatureExtractor:
             else {"x": 0.0, "y": 0.0, "z": 0.0}
         )
 
-    def process_detection_tick(self, event: dict[str, Any]) -> dict[str, float | int] | None:
+    def process_detection_tick(self, event: dict[str, Any]) -> dict[str, float | int]:
         """Build a row immediately on a perception frame.
 
-        The latest trajectory is cached context only. The initial detection is
-        a warm-up frame when no context exists; after that, a detection is
-        scored immediately rather than waiting for the next trajectory.
+        The latest trajectory is context only. This supports a fast,
+        perception-derived guardrail path; it does not make the forest a
+        perception-only model.
         """
         if event["kind"] != "detections":
             raise ValueError("detection tick must be a detections event")
         self.latest_detection = event
         self.update_tracks(event.get("objects", []))
-        if self.latest_trajectory is None:
-            return None
-        context = self.latest_trajectory
+        context = self.latest_trajectory or {
+            "schema_version": 1,
+            "kind": "trajectory",
+            "timestamp_ns": event["timestamp_ns"],
+            "recorded_ns": event_time_ns(event),
+            "frame_id": event.get("frame_id", "map"),
+            "points": [],
+        }
         tick = {
             **context,
             # The row is scored when the message arrives. Keep its original

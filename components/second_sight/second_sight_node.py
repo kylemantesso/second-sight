@@ -17,6 +17,7 @@ from std_msgs.msg import Bool, Float64, String
 from tier4_control_msgs.srv import SetStop
 
 from second_sight.features import FeatureExtractor
+from second_sight.liveness import DetectionLiveness
 from second_sight.model import PERCEPTION_GUARDRAIL_FEATURES, SecondSightScorer
 
 
@@ -105,6 +106,8 @@ class SecondSightNode(Node):
         reset_gap_seconds: float,
         enable_perception_fast_path: bool,
         fast_stop_after: int,
+        enable_perception_liveness: bool,
+        liveness_timeout_ms: float,
     ) -> None:
         super().__init__("second_sight")
         self.extractor = FeatureExtractor()
@@ -126,6 +129,9 @@ class SecondSightNode(Node):
         self.fast_was_anomalous = False
         self.enable_perception_fast_path = enable_perception_fast_path
         self.fast_stop_after = fast_stop_after
+        self.liveness = (
+            DetectionLiveness(liveness_timeout_ms) if enable_perception_liveness else None
+        )
         self.reset_gap_ns = round(reset_gap_seconds * 1_000_000_000)
         self.last_trajectory_ns: int | None = None
 
@@ -153,9 +159,13 @@ class SecondSightNode(Node):
             String, "/second_sight/latency/safe_stop_requested", 10
         )
         self.stop_client = self.create_client(SetStop, "/control/vehicle_cmd_gate/set_stop")
+        if self.liveness is not None:
+            timer_period_seconds = min(max(liveness_timeout_ms / 4_000, 0.01), 0.1)
+            self.create_timer(timer_period_seconds, self.on_liveness_timer)
         self.get_logger().info(
             "Second Sight ready: "
             f"mode={mode}, fast_path={'enabled' if enable_perception_fast_path else 'disabled'}, "
+            f"liveness={'enabled' if self.liveness is not None else 'disabled'}, "
             f"safe_stop={'enabled' if enable_safe_stop else 'dry-run'}"
         )
 
@@ -164,11 +174,34 @@ class SecondSightNode(Node):
 
     def on_detections(self, message: DetectedObjects) -> None:
         event = detection_event(message, self.now_ns())
+        if self.liveness is not None:
+            self.liveness.record_detection(time.monotonic_ns())
         self.extractor.process_event(event)
         if self.fast_extractor is not None and self.fast_scorer is not None:
             row = self.fast_extractor.process_detection_tick(event)
-            if row is not None:
-                self.score_perception_guardrails(row)
+            self.score_perception_guardrails(row)
+
+    def on_liveness_timer(self) -> None:
+        if self.liveness is None or not self.liveness.timed_out(time.monotonic_ns()):
+            return
+        decision_monotonic_ns = time.monotonic_ns()
+        self.decision_publisher.publish(
+            String(
+                data=json.dumps(
+                    {
+                        "schema_version": 1,
+                        "event": "anomaly_decision",
+                        "path": "perception_liveness_timeout",
+                        "anomalous": True,
+                        "monotonic_ns": decision_monotonic_ns,
+                        "consecutive_anomalies": 1,
+                    },
+                    separators=(",", ":"),
+                )
+            )
+        )
+        self.get_logger().warning("perception liveness timeout")
+        self.request_safe_stop("perception_liveness_timeout")
 
     def on_trajectory(self, message: Trajectory) -> None:
         now_ns = self.now_ns()
@@ -332,12 +365,16 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument("--stop-after", type=int, default=2)
     parser.add_argument("--enable-perception-fast-path", action="store_true")
     parser.add_argument("--fast-stop-after", type=int, default=2)
+    parser.add_argument("--enable-perception-liveness", action="store_true")
+    parser.add_argument("--liveness-timeout-ms", type=float, default=300.0)
     parser.add_argument("--reset-gap-seconds", type=float, default=0.0)
     args, ros_args = parser.parse_known_args()
     if args.stop_after <= 0:
         parser.error("--stop-after must be positive")
     if args.fast_stop_after <= 0:
         parser.error("--fast-stop-after must be positive")
+    if args.liveness_timeout_ms <= 0:
+        parser.error("--liveness-timeout-ms must be positive")
     if args.reset_gap_seconds < 0:
         parser.error("--reset-gap-seconds must be non-negative")
     return args, ros_args
@@ -354,6 +391,8 @@ def main() -> None:
         args.reset_gap_seconds,
         args.enable_perception_fast_path,
         args.fast_stop_after,
+        args.enable_perception_liveness,
+        args.liveness_timeout_ms,
     )
     try:
         rclpy.spin(node)

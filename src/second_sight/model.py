@@ -45,8 +45,9 @@ PERCEPTION_GUARDRAIL_FEATURES = tuple(
     for name in GUARDRAIL_FEATURES
     if name
     not in {
-        # This requires an accurate, same-tick ego pose. The fast path uses a
-        # cached pose, so retain only the robust relative-motion feature below.
+        # These are calculated using the current/planning ego pose. A detection
+        # message alone cannot provide stable values for them.
+        "max_relative_object_displacement_m",
         "unexpected_object_drop_count",
     }
 )
