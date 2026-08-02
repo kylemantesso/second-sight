@@ -43,6 +43,10 @@ expected_path="${SECOND_SIGHT_EXPECTED_DECISION_PATH:-trajectory_hybrid}"
 max_fault_to_stop_ms="${SECOND_SIGHT_MAX_FAULT_TO_STOP_MS:-20000}"
 stop_after="${SECOND_SIGHT_STOP_AFTER:-1}"
 discovery_delay_seconds="${SECOND_SIGHT_DISCOVERY_DELAY_SECONDS:-10}"
+# The raw Open AD Kit capture begins with an isolated track-association jump.
+# This fixed clean-only window has no comparable displacement before the fault.
+stream_start_seconds="${SECOND_SIGHT_STREAM_START_SECONDS:-6}"
+stream_duration_seconds="${SECOND_SIGHT_STREAM_DURATION_SECONDS:-10}"
 network="second-sight-portable-live-$run_id"
 node_container="second-sight-portable-node-$run_id"
 injector_container="second-sight-portable-injector-$run_id"
@@ -67,6 +71,14 @@ if ! [[ "$stop_after" =~ ^[1-9][0-9]*$ ]]; then
 fi
 if ! [[ "$discovery_delay_seconds" =~ ^[1-9][0-9]*([.][0-9]+)?$ ]]; then
   echo "SECOND_SIGHT_DISCOVERY_DELAY_SECONDS must be a positive number." >&2
+  exit 1
+fi
+if ! [[ "$stream_start_seconds" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  echo "SECOND_SIGHT_STREAM_START_SECONDS must be a non-negative number." >&2
+  exit 1
+fi
+if ! [[ "$stream_duration_seconds" =~ ^[1-9][0-9]*([.][0-9]+)?$ ]]; then
+  echo "SECOND_SIGHT_STREAM_DURATION_SECONDS must be a positive number." >&2
   exit 1
 fi
 if ! docker info >/dev/null 2>&1; then
@@ -142,7 +154,10 @@ docker run --detach --rm --name "$publisher_container" "${common_ros_args[@]}" \
   --volume "$stream_path:/clean.jsonl:ro" \
   second-sight-node:dev \
   python3 /workspace/components/fault_injector/replay_node.py /clean.jsonl \
-  --detection-topic /second_sight/perception/raw --loop --loop-delay 0 >/dev/null
+  --detection-topic /second_sight/perception/raw \
+  --start-seconds "$stream_start_seconds" \
+  --duration-seconds "$stream_duration_seconds" \
+  --loop --loop-delay 0 >/dev/null
 
 deadline=$(( $(date +%s) + timeout_seconds ))
 while (( $(date +%s) < deadline )); do
@@ -206,6 +221,8 @@ PY
   echo "max_fault_to_stop_ms=$max_fault_to_stop_ms"
   echo "stop_after=$stop_after"
   echo "discovery_delay_seconds=$discovery_delay_seconds"
+  echo "stream_start_seconds=$stream_start_seconds"
+  echo "stream_duration_seconds=$stream_duration_seconds"
   echo "source_completed_before_decision=false"
   echo "git_revision=$(git -C "$root_dir" rev-parse HEAD)"
   echo "model_sha256=$(sha256sum "$model_path" | cut -d ' ' -f1)"

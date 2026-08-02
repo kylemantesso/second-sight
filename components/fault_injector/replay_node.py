@@ -111,6 +111,8 @@ def main() -> None:
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--loop-delay", type=float, default=3.0)
     parser.add_argument("--shutdown-delay", type=float, default=1.0)
+    parser.add_argument("--start-seconds", type=float, default=0.0)
+    parser.add_argument("--duration-seconds", type=float)
     args = parser.parse_args()
     if args.rate <= 0:
         parser.error("--rate must be positive")
@@ -118,10 +120,29 @@ def main() -> None:
         parser.error("--loop-delay must be non-negative")
     if args.shutdown_delay < 0:
         parser.error("--shutdown-delay must be non-negative")
+    if args.start_seconds < 0:
+        parser.error("--start-seconds must be non-negative")
+    if args.duration_seconds is not None and args.duration_seconds <= 0:
+        parser.error("--duration-seconds must be positive")
 
     events = list(iter_events(args.stream))
     if not events:
         parser.error("stream is empty")
+    stream_start_ns = event_time_ns(events[0])
+    start_ns = stream_start_ns + round(args.start_seconds * 1_000_000_000)
+    end_ns = (
+        start_ns + round(args.duration_seconds * 1_000_000_000)
+        if args.duration_seconds is not None
+        else None
+    )
+    events = [
+        event
+        for event in events
+        if event_time_ns(event) >= start_ns
+        and (end_ns is None or event_time_ns(event) < end_ns)
+    ]
+    if not events:
+        parser.error("selected stream window is empty")
     rclpy.init()
     node = PortableReplayNode(args.detection_topic)
     try:

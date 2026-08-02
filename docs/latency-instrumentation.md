@@ -184,6 +184,8 @@ documented reason:
 SECOND_SIGHT_MAX_FAULT_TO_STOP_MS=20000 \
 SECOND_SIGHT_STOP_AFTER=1 \
 SECOND_SIGHT_DISCOVERY_DELAY_SECONDS=10 \
+SECOND_SIGHT_STREAM_START_SECONDS=6 \
+SECOND_SIGHT_STREAM_DURATION_SECONDS=10 \
 ./scripts/run-portable-live-latency-trial.sh \
   arm-portable-teleport-r01 \
   configs/scenarios/latency/teleport.yaml
@@ -194,3 +196,10 @@ The runner writes a source log and metadata setting
 three files privately before using the trace in any aggregate. This proves the
 fault-to-request measurement occurred while perception continued; it does not
 measure service acknowledgement, vehicle response, or a two-machine latency.
+
+The default source is the 6–16-second clean window from the original capture.
+The capture's first six seconds contain an isolated, natural track-association
+jump that can otherwise trigger an immediate-discontinuity policy before the
+fault. The selected window has no comparable pre-fault relative-displacement
+spike. This is an explicit deterministic harness input, not evidence of a
+general false-positive rate; varied held-out clean routes remain required.
