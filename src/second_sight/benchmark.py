@@ -40,6 +40,7 @@ def benchmark_model(
     warmup: int = 1_000,
     samples: int = 10_000,
     host_label: str | None = None,
+    implementation: str = "optimized",
 ) -> dict[str, Any]:
     """Measure one model score per tick on a native host and write a report."""
     if warmup < 0:
@@ -50,7 +51,7 @@ def benchmark_model(
     rows = extract_features(iter_events(stream_path))
     if not rows:
         raise ValueError("stream contains no complete feature rows")
-    scorer = SecondSightScorer(model_path, mode)
+    scorer = SecondSightScorer(model_path, mode, implementation=implementation)
 
     for index in range(warmup):
         scorer.score(rows[index % len(rows)])
@@ -84,6 +85,7 @@ def benchmark_model(
             "feature_rows": len(rows),
         },
         "detector_mode": mode,
+        "scoring_implementation": implementation,
         "warmup_ticks": warmup,
         "sample_count": samples,
         "anomalous_samples": anomaly_count,

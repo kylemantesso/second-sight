@@ -149,19 +149,53 @@ class SecondSightScorer:
         model_path: Path,
         mode: str = "hybrid",
         guardrail_features: tuple[str, ...] = GUARDRAIL_FEATURES,
+        implementation: str = "optimized",
     ) -> None:
         self.bundle = joblib.load(model_path)
         self.mode = mode
         self.guardrail_features = guardrail_features
+        self.implementation = implementation
         # Validate once on construction instead of during a live decision.
         select_guardrail_violations(
             np.zeros((1, len(GUARDRAIL_FEATURES)), dtype=np.float64), guardrail_features
         )
         if self.bundle["metadata"]["feature_names"] != list(MODEL_FEATURE_NAMES):
             raise ValueError("model feature schema does not match this package")
+        if implementation not in {"reference", "optimized"}:
+            raise ValueError("implementation must be 'reference' or 'optimized'")
+        self.guardrail_indices = np.asarray(
+            [MODEL_FEATURE_NAMES.index(name) for name in guardrail_features], dtype=np.intp
+        )
+        metadata = self.bundle["metadata"]
+        self.guardrail_lower = np.asarray(
+            [metadata["guardrails"][name]["lower"] for name in guardrail_features],
+            dtype=np.float64,
+        )
+        self.guardrail_upper = np.asarray(
+            [metadata["guardrails"][name]["upper"] for name in guardrail_features],
+            dtype=np.float64,
+        )
+        self.guardrail_spread = np.asarray(
+            [metadata["guardrails"][name]["spread"] for name in guardrail_features],
+            dtype=np.float64,
+        )
+        self.guardrail_tolerance = np.asarray(
+            [metadata["guardrails"][name]["tolerance"] for name in guardrail_features],
+            dtype=np.float64,
+        )
+        self.guardrail_threshold = float(metadata["guardrail_threshold"])
 
     def score(self, row: dict[str, float | int]) -> dict[str, Any]:
+        """Score one feature row.
+
+        The perception fast path uses guardrails only. In its optimized mode,
+        deliberately skip Isolation Forest scoring: the old implementation
+        performed a full forest traversal and then discarded it. Hybrid and
+        forest modes retain the reference forest calculation.
+        """
         matrix = np.asarray([[float(row[name]) for name in MODEL_FEATURE_NAMES]], dtype=np.float64)
+        if self.mode == "guardrails" and self.implementation == "optimized":
+            return self.score_guardrails_only(matrix)
         result = score_feature_matrix(self.bundle, matrix, self.mode)
         guardrail_scores, selected_violations = select_guardrail_violations(
             result["guardrail_violations"], self.guardrail_features
@@ -187,6 +221,34 @@ class SecondSightScorer:
                 name
                 for index, name in enumerate(self.guardrail_features)
                 if violations[index] > threshold
+            ],
+        }
+
+    def score_guardrails_only(self, matrix: np.ndarray) -> dict[str, Any]:
+        """Score selected guardrails without evaluating the unused forest.
+
+        This matches the guardrail decision and per-feature violation policy of
+        :func:`score_feature_matrix` for one row. ``forest_score`` is ``None``
+        by design because no Isolation Forest work occurred.
+        """
+        values = matrix[0, self.guardrail_indices]
+        below = (self.guardrail_lower - self.guardrail_tolerance - values) / (
+            self.guardrail_spread
+        )
+        above = (values - self.guardrail_upper - self.guardrail_tolerance) / (
+            self.guardrail_spread
+        )
+        violations = np.maximum(np.maximum(below, above), 0.0)
+        guardrail_score = float(violations.max())
+        return {
+            "anomalous": bool(guardrail_score > self.guardrail_threshold),
+            "forest_score": None,
+            "forest_threshold": float(self.bundle["metadata"]["threshold"]),
+            "guardrail_score": guardrail_score,
+            "guardrail_features": [
+                name
+                for index, name in enumerate(self.guardrail_features)
+                if violations[index] > self.guardrail_threshold
             ],
         }
 

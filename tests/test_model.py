@@ -1,12 +1,17 @@
+from pathlib import Path
+
 import numpy as np
 
+from second_sight.features import FEATURE_NAMES, write_feature_csv
 from second_sight.model import (
     GUARDRAIL_FEATURES,
     MODEL_FEATURE_NAMES,
     PERCEPTION_GUARDRAIL_FEATURES,
+    SecondSightScorer,
     learn_guardrails,
     score_guardrails,
     select_guardrail_violations,
+    train_model,
 )
 
 
@@ -42,3 +47,40 @@ def test_fast_path_excludes_trajectory_dependent_guardrails() -> None:
     assert "max_relative_object_displacement_m" not in PERCEPTION_GUARDRAIL_FEATURES
     assert "unexpected_object_drop_count" not in PERCEPTION_GUARDRAIL_FEATURES
     assert selected.tolist() == [[2.0, 0.0]]
+
+
+def test_optimized_guardrail_scorer_matches_reference_decisions(tmp_path: Path) -> None:
+    clean = np.zeros((4, len(MODEL_FEATURE_NAMES)), dtype=np.float64)
+    clean[:, MODEL_FEATURE_NAMES.index("source_age_ms")] = [10.0, 20.0, 30.0, 40.0]
+    features = tmp_path / "clean.csv"
+    write_feature_csv(
+        features,
+        [
+            {
+                "timestamp_ns": index,
+                **{
+                    name: (
+                        float(row[MODEL_FEATURE_NAMES.index(name)])
+                        if name in MODEL_FEATURE_NAMES
+                        else 0.0
+                    )
+                    for name in FEATURE_NAMES
+                },
+            }
+            for index, row in enumerate(clean)
+        ],
+    )
+    model = tmp_path / "model.joblib"
+    train_model([features], model, trees=5)
+    reference = SecondSightScorer(model, "guardrails", implementation="reference")
+    optimized = SecondSightScorer(model, "guardrails", implementation="optimized")
+
+    for age in (10.0, 25.0, 1_000.0):
+        row = {name: 0.0 for name in MODEL_FEATURE_NAMES}
+        row["source_age_ms"] = age
+        expected = reference.score(row)
+        actual = optimized.score(row)
+        assert actual["anomalous"] == expected["anomalous"]
+        assert actual["guardrail_score"] == expected["guardrail_score"]
+        assert actual["guardrail_features"] == expected["guardrail_features"]
+        assert actual["forest_score"] is None

@@ -116,7 +116,10 @@ class SecondSightNode(Node):
         self.fast_extractor = FeatureExtractor() if enable_perception_fast_path else None
         self.fast_scorer = (
             SecondSightScorer(
-                model_path, "guardrails", guardrail_features=PERCEPTION_GUARDRAIL_FEATURES
+                model_path,
+                "guardrails",
+                guardrail_features=PERCEPTION_GUARDRAIL_FEATURES,
+                implementation="optimized",
             )
             if enable_perception_fast_path
             else None

@@ -62,6 +62,7 @@ def test_benchmark_writes_host_and_latency_report(tmp_path: Path) -> None:
     )
 
     assert report["sample_count"] == 5
+    assert report["scoring_implementation"] == "optimized"
     assert report["host"]["label"] == "test-host"
     assert report["stream"]["feature_rows"] == 3
     assert report["model"]["bytes"] > 0

@@ -94,6 +94,12 @@ def build_parser() -> argparse.ArgumentParser:
     benchmark_parser.add_argument(
         "--host-label", help="operator-supplied host or instance label recorded in the report"
     )
+    benchmark_parser.add_argument(
+        "--implementation",
+        choices=("reference", "optimized"),
+        default="optimized",
+        help="use the full reference path or the optimized guardrail-only fast path",
+    )
     latency_report_parser = subcommands.add_parser(
         "latency-report", help="aggregate completed live fault-to-stop JSONL traces"
     )
@@ -193,6 +199,7 @@ def main() -> int:
             warmup=args.warmup,
             samples=args.samples,
             host_label=args.host_label,
+            implementation=args.implementation,
         )
         latency = report["inference_us"]
         print(f"Benchmark: {args.output}")
