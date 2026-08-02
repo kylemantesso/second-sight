@@ -129,7 +129,8 @@ the five-run-per-fault Arm validation is in
 It explicitly excludes teleport from its fast-path percentiles. A separate,
 single-run causal trajectory-hybrid teleport validation is recorded in
 [`reports/arm-portable-teleport-validation.md`](reports/arm-portable-teleport-validation.md);
-it is not a final repeated latency benchmark.
+the repeated five-run development validation is in
+[`reports/arm-portable-teleport-repeated-validation.md`](reports/arm-portable-teleport-repeated-validation.md).
 The live end-to-end measurement protocol is in
 [`docs/latency-instrumentation.md`](docs/latency-instrumentation.md).
 Use [`scripts/capture-container-resources.sh`](scripts/capture-container-resources.sh)
