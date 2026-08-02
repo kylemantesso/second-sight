@@ -9,7 +9,7 @@ PUBLISHER_CONTAINER="second-sight-portable-clean-publisher"
 STREAM_PATH="${1:-$ROOT_DIR/data/processed/openadkit-clean-20260716T112843Z.jsonl}"
 MODEL_PATH="${2:-$ROOT_DIR/models/hybrid-25tree.joblib}"
 require_no_fast_anomalies="${SECOND_SIGHT_REQUIRE_NO_FAST_ANOMALIES:-false}"
-replay_seconds="${SECOND_SIGHT_CLEAN_REPLAY_SECONDS:-40}"
+replay_seconds="${SECOND_SIGHT_CLEAN_REPLAY_SECONDS:-32}"
 
 if [[ ! -f "$STREAM_PATH" ]]; then
   echo "Clean stream does not exist: $STREAM_PATH" >&2
@@ -69,14 +69,14 @@ docker run --detach \
   --volume "$STREAM_PATH:/clean.jsonl:ro" \
   second-sight-node:dev \
   python3 /workspace/components/fault_injector/replay_node.py /clean.jsonl \
-  --loop --loop-delay 0 >/dev/null
+  --shutdown-delay 0 >/dev/null
 
 sleep "$replay_seconds"
 docker stop --time 0 "$PUBLISHER_CONTAINER" >/dev/null
 
-# The clean stream loops with no inter-loop gap, then both publishers are
-# stopped together. This lets the liveness timer observe normal cadence without
-# interpreting a deliberate finite-replay EOF as a perception failure.
+# Stop before the finite stream reaches EOF. This exercises 29 seconds of its
+# normal 10 Hz cadence without interpreting a deliberate end-of-stream as a
+# perception failure or a loop reset as an object teleport.
 docker stop --time 0 "$NODE_CONTAINER" >/dev/null
 
 observer_status="$(docker wait "$OBSERVER_CONTAINER")"
