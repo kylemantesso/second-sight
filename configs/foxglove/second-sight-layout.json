@@ -1,0 +1,199 @@
+{
+  "configById": {
+    "Indicator!second-sight": {
+      "path": "/second_sight/anomaly.data",
+      "style": "background",
+      "fontSize": 32,
+      "fallbackColor": "#475569",
+      "fallbackLabel": "WAITING FOR DATA",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "false",
+          "color": "#16a34a",
+          "label": "SECOND_SIGHT NORMAL"
+        },
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#dc2626",
+          "label": "ANOMALY DETECTED"
+        }
+      ],
+      "foxglovePanelTitle": "Who watches the AI?"
+    },
+    "Indicator!fault": {
+      "path": "/second_sight/fault/active.data",
+      "style": "background",
+      "fontSize": 28,
+      "fallbackColor": "#334155",
+      "fallbackLabel": "WAITING FOR DATA",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "false",
+          "color": "#334155",
+          "label": "CLEAN STREAM"
+        },
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#ea580c",
+          "label": "FAULT INJECTED"
+        }
+      ],
+      "foxglovePanelTitle": "Perception Stream"
+    },
+    "Indicator!stop": {
+      "path": "/second_sight/safe_stop_requested.data",
+      "style": "background",
+      "fontSize": 28,
+      "fallbackColor": "#475569",
+      "fallbackLabel": "WAITING FOR DATA",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "false",
+          "color": "#0369a1",
+          "label": "MONITORING"
+        },
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#991b1b",
+          "label": "SAFE STOP REQUESTED"
+        }
+      ],
+      "foxglovePanelTitle": "Safety Action"
+    },
+    "Plot!heartbeat": {
+      "paths": [
+        {
+          "value": "/second_sight/anomaly_score.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "Isolation Forest score",
+          "color": "#22c55e",
+          "lineSize": 3,
+          "showLine": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "yAxisLabel": "Anomaly score",
+      "minYValue": 0,
+      "maxYValue": 0.8,
+      "title": "Second Sight Heartbeat",
+      "foxglovePanelTitle": "Second Sight Heartbeat"
+    },
+    "Plot!latency": {
+      "paths": [
+        {
+          "value": "/second_sight/inference_ms.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "Inference latency (ms)",
+          "color": "#38bdf8",
+          "lineSize": 2,
+          "showLine": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "yAxisLabel": "Milliseconds",
+      "minYValue": 0,
+      "title": "Inference Latency",
+      "foxglovePanelTitle": "Inference Latency (development only)"
+    },
+    "StateTransitions!faults": {
+      "paths": [
+        {
+          "value": "/second_sight/fault/type.data",
+          "label": "Injected fault",
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/second_sight/anomaly.data",
+          "label": "Second Sight anomaly",
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/second_sight/safe_stop_requested.data",
+          "label": "Safe-stop request",
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "foxglovePanelTitle": "Fault to Detection Timeline"
+    },
+    "RawMessages!status": {
+      "topicPath": "/second_sight/status",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "fontSize": 14,
+      "foxglovePanelTitle": "Second Sight Status"
+    },
+    "RawMessages!groundtruth": {
+      "topicPath": "/second_sight/fault/event",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "fontSize": 14,
+      "foxglovePanelTitle": "Injection Ground Truth"
+    }
+  },
+  "globalVariables": {},
+  "layout": {
+    "first": {
+      "first": "Indicator!second-sight",
+      "second": {
+        "first": "Indicator!fault",
+        "second": "Indicator!stop",
+        "direction": "row",
+        "splitPercentage": 50
+      },
+      "direction": "row",
+      "splitPercentage": 40
+    },
+    "second": {
+      "first": {
+        "first": "Plot!heartbeat",
+        "second": "Plot!latency",
+        "direction": "row",
+        "splitPercentage": 65
+      },
+      "second": {
+        "first": "StateTransitions!faults",
+        "second": {
+          "first": "RawMessages!status",
+          "second": "RawMessages!groundtruth",
+          "direction": "row",
+          "splitPercentage": 50
+        },
+        "direction": "column",
+        "splitPercentage": 55
+      },
+      "direction": "column",
+      "splitPercentage": 55
+    },
+    "direction": "column",
+    "splitPercentage": 20
+  },
+  "playbackConfig": {
+    "speed": 1
+  },
+  "userNodes": {},
+  "version": 1
+}

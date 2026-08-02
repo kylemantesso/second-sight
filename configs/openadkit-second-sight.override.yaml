@@ -1,0 +1,62 @@
+services:
+  simulator:
+    image: second-sight-simulator:dev
+    command: >-
+      ros2 launch scenario_test_runner second_sight_scenario_test_runner.launch.py
+      record:=false
+      scenario:=/autoware/scenario-sim/scenario/yield_maneuver_demo.yaml
+      sensor_model:=sample_sensor_kit
+      vehicle_model:=sample_vehicle
+      initialize_duration:=90
+      global_timeout:=${TIMEOUT:-3600}
+      global_frame_rate:=20
+
+  fault-injector:
+    image: second-sight-fault-injector:dev
+    init: true
+    environment:
+      - ROS_DOMAIN_ID=88
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    volumes:
+      - ${SECOND_SIGHT_ROOT}/configs/scenarios/all-faults.yaml:/scenario.yaml:ro
+    command: >-
+      python3 /opt/second-sight/fault_injector_node.py
+      --scenario /scenario.yaml
+    depends_on:
+      - simulator
+
+  second-sight:
+    image: second-sight-node:dev
+    init: true
+    environment:
+      - ROS_DOMAIN_ID=88
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    volumes:
+      - ${SECOND_SIGHT_ROOT}/models/hybrid-overnight.joblib:/model.joblib:ro
+    command: >-
+      python3 /opt/second-sight/second_sight_node.py
+      --model /model.joblib
+      --mode hybrid
+    depends_on:
+      - planning-control
+      - fault-injector
+
+  dashboard:
+    image: second-sight-dashboard:dev
+    init: true
+    environment:
+      - ROS_DOMAIN_ID=88
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    ports:
+      - 8765:8765
+    command: >-
+      ros2 run foxglove_bridge foxglove_bridge
+      --ros-args
+      -p port:=8765
+      -p topic_whitelist:=['^/second_sight/.*']
+      -p service_whitelist:=['^$']
+      -p param_whitelist:=['^$']
+      -p capabilities:=['clientPublish','connectionGraph']
+    depends_on:
+      - second-sight
+      - fault-injector

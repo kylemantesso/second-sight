@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "second-sight"
+version = "0.1.0"
+description = "Independent anomaly detection for autonomous driving message streams"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { file = "LICENSE" }
+dependencies = [
+    "joblib>=1.4",
+    "numpy>=1.26,<2",
+    "pyyaml>=6.0",
+    "scikit-learn>=1.5,<=1.7.2",
+]
+
+[project.scripts]
+second-sight = "second_sight.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.9",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/second_sight"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

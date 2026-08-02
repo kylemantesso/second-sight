@@ -1,0 +1,64 @@
+name: second-sight-dashboard-demo
+
+x-ros-environment: &ros-environment
+  ROS_DOMAIN_ID: "88"
+  RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+
+services:
+  fault-injector:
+    image: second-sight-fault-injector:dev
+    init: true
+    environment: *ros-environment
+    volumes:
+      - ${SECOND_SIGHT_ROOT}/configs/scenarios/all-faults.yaml:/scenario.yaml:ro
+    command: >-
+      python3 /opt/second-sight/fault_injector_node.py
+      --scenario /scenario.yaml
+      --reset-gap-seconds 2
+
+  second-sight:
+    image: second-sight-node:dev
+    init: true
+    environment: *ros-environment
+    volumes:
+      - ${SECOND_SIGHT_ROOT}/models/hybrid-overnight.joblib:/model.joblib:ro
+    command: >-
+      python3 /opt/second-sight/second_sight_node.py
+      --model /model.joblib
+      --mode hybrid
+      --reset-gap-seconds 2
+    depends_on:
+      - fault-injector
+
+  replay:
+    image: second-sight-node:dev
+    init: true
+    environment: *ros-environment
+    volumes:
+      - ${SECOND_SIGHT_ROOT}:/workspace:ro
+      - ${SECOND_SIGHT_ROOT}/data/processed/openadkit-clean-20260716T112843Z.jsonl:/clean.jsonl:ro
+    command: >-
+      python3 /workspace/components/fault_injector/replay_node.py
+      /clean.jsonl
+      --detection-topic /second_sight/perception/raw
+      --loop
+      --loop-delay 3
+    depends_on:
+      - second-sight
+
+  dashboard:
+    image: second-sight-dashboard:dev
+    init: true
+    environment: *ros-environment
+    ports:
+      - 8765:8765
+    command: >-
+      ros2 run foxglove_bridge foxglove_bridge
+      --ros-args
+      -p port:=8765
+      -p topic_whitelist:=['^/second_sight/.*']
+      -p service_whitelist:=['^$']
+      -p param_whitelist:=['^$']
+      -p capabilities:=['clientPublish','connectionGraph']
+    depends_on:
+      - replay

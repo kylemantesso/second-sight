@@ -1,0 +1,31 @@
+name: second-sight
+
+x-ros-environment: &ros-environment
+  ROS_DOMAIN_ID: "42"
+  ROS_LOCALHOST_ONLY: "0"
+
+services:
+  ros-publisher:
+    image: ros:humble-ros-base-jammy
+    profiles: ["ros-smoke"]
+    environment: *ros-environment
+    command:
+      - bash
+      - -lc
+      - >-
+        source /opt/ros/humble/setup.bash &&
+        ros2 topic pub --rate 2 /second_sight/smoke std_msgs/msg/String
+        "{data: 'second-sight-ready'}"
+
+  ros-subscriber:
+    image: ros:humble-ros-base-jammy
+    profiles: ["ros-smoke"]
+    environment: *ros-environment
+    depends_on:
+      - ros-publisher
+    command:
+      - bash
+      - -lc
+      - >-
+        source /opt/ros/humble/setup.bash &&
+        timeout 30 ros2 topic echo --once /second_sight/smoke std_msgs/msg/String

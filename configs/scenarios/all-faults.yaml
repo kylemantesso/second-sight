@@ -1,0 +1,54 @@
+schema_version: 1
+name: openadkit-all-faults
+seed: 2026
+faults:
+  - id: vanish-car
+    type: vanish
+    start_seconds: 3
+    duration_seconds: 3
+    target: detections
+    parameters:
+      class_label: 1
+      object_index: 0
+
+  - id: phantom-pedestrian
+    type: phantom
+    start_seconds: 8
+    duration_seconds: 3
+    target: detections
+    parameters:
+      class_label: 7
+      classification_probability: 1.0
+      existence_probability: 1.0
+      position: {x: 59182.0, y: 43035.0, z: -4.8}
+      dimensions: {x: 0.8, y: 0.8, z: 1.8}
+
+  - id: freeze-detections
+    type: freeze
+    start_seconds: 13
+    duration_seconds: 3
+    target: detections
+
+  - id: teleport-car
+    type: teleport
+    start_seconds: 18
+    duration_seconds: 3
+    target: detections
+    parameters:
+      class_label: 1
+      object_index: 0
+      offset: {x: 20.0, y: -20.0, z: 0.0}
+
+  - id: collapse-confidence
+    type: confidence_collapse
+    start_seconds: 23
+    duration_seconds: 3
+    target: detections
+    parameters:
+      factor: 0.05
+
+  - id: perception-hang
+    type: liveness
+    start_seconds: 28
+    duration_seconds: 3
+    target: detections

@@ -1,0 +1,9 @@
+services:
+  simulator:
+    init: true
+
+  planning-control:
+    init: true
+
+  visualizer:
+    init: true

@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""Live ROS 2 adapter for the portable Second Sight detector."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import time
+from pathlib import Path
+from typing import Any
+
+import rclpy
+from autoware_perception_msgs.msg import DetectedObjects
+from autoware_planning_msgs.msg import Trajectory
+from rclpy.node import Node
+from std_msgs.msg import Bool, Float64, String
+from tier4_control_msgs.srv import SetStop
+
+from second_sight.features import FeatureExtractor
+from second_sight.model import SecondSightScorer
+
+
+def vector(message: Any) -> dict[str, float]:
+    return {"x": message.x, "y": message.y, "z": message.z}
+
+
+def quaternion(message: Any) -> dict[str, float]:
+    return {"x": message.x, "y": message.y, "z": message.z, "w": message.w}
+
+
+def stamp_ns(message: Any) -> int:
+    return message.header.stamp.sec * 1_000_000_000 + message.header.stamp.nanosec
+
+
+def detection_event(message: DetectedObjects, recorded_ns: int) -> dict[str, Any]:
+    objects = []
+    for detected_object in message.objects:
+        kinematics = detected_object.kinematics
+        pose = kinematics.pose_with_covariance.pose
+        twist = kinematics.twist_with_covariance.twist if kinematics.has_twist else None
+        objects.append(
+            {
+                "existence_probability": detected_object.existence_probability,
+                "classification": [
+                    {"label": item.label, "probability": item.probability}
+                    for item in detected_object.classification
+                ],
+                "position": vector(pose.position),
+                "orientation": quaternion(pose.orientation),
+                "orientation_availability": kinematics.orientation_availability,
+                "linear_velocity": vector(twist.linear) if twist else None,
+                "angular_velocity": vector(twist.angular) if twist else None,
+                "shape": {
+                    "type": detected_object.shape.type,
+                    "dimensions": vector(detected_object.shape.dimensions),
+                    "footprint": [
+                        vector(point) for point in detected_object.shape.footprint.points
+                    ],
+                },
+            }
+        )
+    return {
+        "schema_version": 1,
+        "kind": "detections",
+        "timestamp_ns": stamp_ns(message) or recorded_ns,
+        "recorded_ns": recorded_ns,
+        "frame_id": message.header.frame_id,
+        "objects": objects,
+    }
+
+
+def trajectory_event(message: Trajectory, recorded_ns: int) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "kind": "trajectory",
+        "timestamp_ns": stamp_ns(message) or recorded_ns,
+        "recorded_ns": recorded_ns,
+        "frame_id": message.header.frame_id,
+        "points": [
+            {
+                "time_from_start_ns": (
+                    point.time_from_start.sec * 1_000_000_000 + point.time_from_start.nanosec
+                ),
+                "position": vector(point.pose.position),
+                "orientation": quaternion(point.pose.orientation),
+                "longitudinal_velocity_mps": point.longitudinal_velocity_mps,
+                "lateral_velocity_mps": point.lateral_velocity_mps,
+                "acceleration_mps2": point.acceleration_mps2,
+                "heading_rate_rps": point.heading_rate_rps,
+                "front_wheel_angle_rad": point.front_wheel_angle_rad,
+                "rear_wheel_angle_rad": point.rear_wheel_angle_rad,
+            }
+            for point in message.points
+        ],
+    }
+
+
+class SecondSightNode(Node):
+    def __init__(
+        self,
+        model_path: Path,
+        mode: str,
+        enable_safe_stop: bool,
+        stop_after: int,
+        reset_gap_seconds: float,
+    ) -> None:
+        super().__init__("second_sight")
+        self.extractor = FeatureExtractor()
+        self.scorer = SecondSightScorer(model_path, mode)
+        self.enable_safe_stop = enable_safe_stop
+        self.stop_after = stop_after
+        self.consecutive_anomalies = 0
+        self.stop_requested = False
+        self.was_anomalous = False
+        self.reset_gap_ns = round(reset_gap_seconds * 1_000_000_000)
+        self.last_trajectory_ns: int | None = None
+
+        self.create_subscription(
+            DetectedObjects,
+            "/perception/object_recognition/detection/objects",
+            self.on_detections,
+            10,
+        )
+        self.create_subscription(
+            Trajectory,
+            "/planning/scenario_planning/trajectory",
+            self.on_trajectory,
+            10,
+        )
+        self.score_publisher = self.create_publisher(Float64, "/second_sight/anomaly_score", 10)
+        self.anomaly_publisher = self.create_publisher(Bool, "/second_sight/anomaly", 10)
+        self.latency_publisher = self.create_publisher(Float64, "/second_sight/inference_ms", 10)
+        self.status_publisher = self.create_publisher(String, "/second_sight/status", 10)
+        self.stop_publisher = self.create_publisher(Bool, "/second_sight/safe_stop_requested", 10)
+        self.stop_client = self.create_client(SetStop, "/control/vehicle_cmd_gate/set_stop")
+        self.get_logger().info(
+            "Second Sight ready: "
+            f"mode={mode}, safe_stop={'enabled' if enable_safe_stop else 'dry-run'}"
+        )
+
+    def now_ns(self) -> int:
+        return self.get_clock().now().nanoseconds
+
+    def on_detections(self, message: DetectedObjects) -> None:
+        self.extractor.process_event(detection_event(message, self.now_ns()))
+
+    def on_trajectory(self, message: Trajectory) -> None:
+        now_ns = self.now_ns()
+        if (
+            self.reset_gap_ns > 0
+            and self.last_trajectory_ns is not None
+            and now_ns - self.last_trajectory_ns > self.reset_gap_ns
+        ):
+            self.consecutive_anomalies = 0
+            self.stop_requested = False
+            self.was_anomalous = False
+            self.get_logger().info("reset dry-run state after source-stream gap")
+        self.last_trajectory_ns = now_ns
+        row = self.extractor.process_event(trajectory_event(message, now_ns))
+        if row is None:
+            return
+        started_ns = time.perf_counter_ns()
+        result = self.scorer.score(row)
+        inference_ms = (time.perf_counter_ns() - started_ns) / 1_000_000
+        anomalous = result["anomalous"]
+        self.consecutive_anomalies = self.consecutive_anomalies + 1 if anomalous else 0
+
+        self.score_publisher.publish(Float64(data=result["forest_score"]))
+        self.anomaly_publisher.publish(Bool(data=anomalous))
+        self.latency_publisher.publish(Float64(data=inference_ms))
+        self.status_publisher.publish(
+            String(
+                data=json.dumps(
+                    {
+                        "anomalous": anomalous,
+                        "forest_score": result["forest_score"],
+                        "guardrail_score": result["guardrail_score"],
+                        "guardrail_features": result["guardrail_features"],
+                        "consecutive_anomalies": self.consecutive_anomalies,
+                    },
+                    separators=(",", ":"),
+                )
+            )
+        )
+        self.stop_publisher.publish(Bool(data=self.stop_requested))
+        if anomalous and not self.was_anomalous:
+            self.get_logger().warning(
+                f"anomaly score={result['forest_score']:.4f} "
+                f"guardrails={result['guardrail_features']} inference_ms={inference_ms:.3f}"
+            )
+        elif not anomalous and self.was_anomalous:
+            self.get_logger().info("anomaly cleared")
+        self.was_anomalous = anomalous
+        if self.consecutive_anomalies >= self.stop_after:
+            self.request_safe_stop()
+
+    def request_safe_stop(self) -> None:
+        if self.stop_requested:
+            return
+        self.stop_requested = True
+        self.stop_publisher.publish(Bool(data=True))
+        if not self.enable_safe_stop:
+            self.get_logger().warning("safe stop requested in dry-run mode")
+            return
+        if not self.stop_client.service_is_ready():
+            self.get_logger().error("safe-stop service is unavailable")
+            self.stop_requested = False
+            return
+        request = SetStop.Request()
+        request.stop = True
+        request.request_source = "second_sight"
+        future = self.stop_client.call_async(request)
+        future.add_done_callback(self.on_stop_response)
+
+    def on_stop_response(self, future: Any) -> None:
+        try:
+            response = future.result()
+            if response.status.success:
+                self.get_logger().warning("Autoware accepted the safe-stop request")
+            else:
+                self.get_logger().error(f"safe-stop rejected: {response.status.message}")
+                self.stop_requested = False
+        except Exception as error:
+            self.get_logger().error(f"safe-stop request failed: {error}")
+            self.stop_requested = False
+
+
+def parse_args() -> tuple[argparse.Namespace, list[str]]:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=Path, required=True)
+    parser.add_argument(
+        "--mode", choices=("isolation_forest", "guardrails", "hybrid"), default="hybrid"
+    )
+    parser.add_argument("--enable-safe-stop", action="store_true")
+    parser.add_argument("--stop-after", type=int, default=2)
+    parser.add_argument("--reset-gap-seconds", type=float, default=0.0)
+    args, ros_args = parser.parse_known_args()
+    if args.stop_after <= 0:
+        parser.error("--stop-after must be positive")
+    if args.reset_gap_seconds < 0:
+        parser.error("--reset-gap-seconds must be non-negative")
+    return args, ros_args
+
+
+def main() -> None:
+    args, ros_args = parse_args()
+    rclpy.init(args=ros_args)
+    node = SecondSightNode(
+        args.model,
+        args.mode,
+        args.enable_safe_stop,
+        args.stop_after,
+        args.reset_gap_seconds,
+    )
+    try:
+        rclpy.spin(node)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
