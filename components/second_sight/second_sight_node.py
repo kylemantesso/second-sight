@@ -167,7 +167,8 @@ class SecondSightNode(Node):
         self.extractor.process_event(event)
         if self.fast_extractor is not None and self.fast_scorer is not None:
             row = self.fast_extractor.process_detection_tick(event)
-            self.score_perception_guardrails(row)
+            if row is not None:
+                self.score_perception_guardrails(row)
 
     def on_trajectory(self, message: Trajectory) -> None:
         now_ns = self.now_ns()
@@ -217,6 +218,7 @@ class SecondSightNode(Node):
                     {
                         "schema_version": 1,
                         "event": "anomaly_decision",
+                        "path": "trajectory_hybrid",
                         "anomalous": anomalous,
                         "monotonic_ns": decision_monotonic_ns,
                         "inference_ms": inference_ms,

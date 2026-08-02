@@ -83,9 +83,13 @@ def test_flags_object_drop_while_object_is_near_ego() -> None:
 def test_detection_tick_builds_row_without_waiting_for_trajectory() -> None:
     extractor = FeatureExtractor()
 
-    first = extractor.process_detection_tick(detection(0, 10.0))
-    second = extractor.process_detection_tick(empty_detection(100_000_000))
+    assert extractor.process_detection_tick(detection(0, 10.0)) is None
+    extractor.update_trajectory_context(trajectory(50_000_000))
+    baseline = extractor.process_detection_tick(detection(100_000_000, 10.0))
+    second = extractor.process_detection_tick(empty_detection(200_000_000))
 
-    assert first["trajectory_point_count"] == 0.0
+    assert baseline is not None
+    assert second is not None
+    assert second["trajectory_point_count"] > 0.0
     assert second["unmatched_previous_object_count"] == 1.0
     assert second["object_count_delta"] == -1.0

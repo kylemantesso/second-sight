@@ -35,12 +35,13 @@ to correlate these records with injector timing on Arm Linux.
 
 ## Experimental perception fast path
 
-`--enable-perception-fast-path` runs the normal-only, perception-derived
-guardrails on every detection message, without waiting for a downstream
-trajectory. It intentionally excludes trajectory-dependent relative-motion and
-near-object-drop features. It is opt-in: the Isolation Forest remains
-trajectory-context dependent, and the fast path must pass clean-stream and Arm
-validation before it becomes the default.
+`--enable-perception-fast-path` runs normal-only guardrails on every detection
+message, without waiting for a downstream trajectory. It uses the most recent
+trajectory only as cached ego-pose context, skips startup detections until that
+context exists, and excludes the same-tick near-object-drop feature. It is
+opt-in: the Isolation Forest remains trajectory-context dependent, and the
+fast path must pass clean-stream and Arm validation before it becomes the
+default.
 
 When using the integrated compose stack, pass the flag through explicitly:
 
