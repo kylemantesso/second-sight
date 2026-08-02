@@ -67,6 +67,16 @@ Verify live subscriptions and scoring against the clean bag in dry-run mode:
 The smoke test uses ROS simulated time so historical bag header timestamps are
 not incorrectly classified as stale.
 
+To validate the experimental perception fast path against the same clean bag,
+enable it explicitly:
+
+```bash
+SECOND_SIGHT_NODE_ARGS="--enable-perception-fast-path" \
+./scripts/second-sight-replay-smoke.sh \
+  data/raw/openadkit-clean-20260716T112843Z \
+  models/hybrid-25tree.joblib
+```
+
 Verify the opposite assertion, that a corrupted stream requests a dry-run
 stop, with:
 

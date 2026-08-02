@@ -35,6 +35,7 @@ docker run --detach --rm \
   python3 /opt/second-sight/second_sight_node.py \
   --model /model.joblib \
   --mode hybrid \
+  ${SECOND_SIGHT_NODE_ARGS:-} \
   --ros-args -p use_sim_time:=true >/dev/null
 
 docker run --detach \
