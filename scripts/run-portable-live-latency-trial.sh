@@ -42,6 +42,7 @@ model_path="${SECOND_SIGHT_MODEL_PATH:-$root_dir/models/hybrid-25tree.joblib}"
 expected_path="${SECOND_SIGHT_EXPECTED_DECISION_PATH:-trajectory_hybrid}"
 max_fault_to_stop_ms="${SECOND_SIGHT_MAX_FAULT_TO_STOP_MS:-20000}"
 stop_after="${SECOND_SIGHT_STOP_AFTER:-1}"
+discovery_delay_seconds="${SECOND_SIGHT_DISCOVERY_DELAY_SECONDS:-10}"
 network="second-sight-portable-live-$run_id"
 node_container="second-sight-portable-node-$run_id"
 injector_container="second-sight-portable-injector-$run_id"
@@ -62,6 +63,10 @@ if ! [[ "$max_fault_to_stop_ms" =~ ^[1-9][0-9]*([.][0-9]+)?$ ]]; then
 fi
 if ! [[ "$stop_after" =~ ^[1-9][0-9]*$ ]]; then
   echo "SECOND_SIGHT_STOP_AFTER must be a positive integer." >&2
+  exit 1
+fi
+if ! [[ "$discovery_delay_seconds" =~ ^[1-9][0-9]*([.][0-9]+)?$ ]]; then
+  echo "SECOND_SIGHT_DISCOVERY_DELAY_SECONDS must be a positive number." >&2
   exit 1
 fi
 if ! docker info >/dev/null 2>&1; then
@@ -127,9 +132,11 @@ docker run --detach --rm --name "$monitor_container" "${common_ros_args[@]}" \
   --output "/measurements/$run_id.jsonl" >/dev/null
 
 # Let DDS discovery complete before the replay node begins its own three-second
-# readiness delay. Liveness is intentionally not enabled: this experiment must
-# demonstrate the trajectory-hybrid decision, not a missing-message timeout.
-sleep 3
+# readiness delay. The initial telemetry is itself the timing source, so it
+# must not begin before every subscriber has discovered its publisher. Liveness
+# is intentionally not enabled: this experiment must demonstrate the
+# trajectory-hybrid decision, not a missing-message timeout.
+sleep "$discovery_delay_seconds"
 docker run --detach --rm --name "$publisher_container" "${common_ros_args[@]}" \
   --volume "$root_dir:/workspace:ro" \
   --volume "$stream_path:/clean.jsonl:ro" \
@@ -198,6 +205,7 @@ PY
   echo "expected_decision_path=$expected_path"
   echo "max_fault_to_stop_ms=$max_fault_to_stop_ms"
   echo "stop_after=$stop_after"
+  echo "discovery_delay_seconds=$discovery_delay_seconds"
   echo "source_completed_before_decision=false"
   echo "git_revision=$(git -C "$root_dir" rev-parse HEAD)"
   echo "model_sha256=$(sha256sum "$model_path" | cut -d ' ' -f1)"

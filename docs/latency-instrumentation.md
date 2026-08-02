@@ -175,11 +175,15 @@ disabled. It sets `--stop-after 1` by default: this is the explicit
 single-high-severity-discontinuity policy being measured, rather than the
 two-consecutive-anomaly policy used by the fast-path experiment. The default
 20-second fault-to-stop bound leaves more than 10 seconds before the source
-would end; override either setting only with a documented reason:
+would end. Before publishing source data, the runner waits 10 seconds for DDS
+discovery; this protects the first injection, decision, and stop messages from
+being lost during endpoint discovery. Override either setting only with a
+documented reason:
 
 ```bash
 SECOND_SIGHT_MAX_FAULT_TO_STOP_MS=20000 \
 SECOND_SIGHT_STOP_AFTER=1 \
+SECOND_SIGHT_DISCOVERY_DELAY_SECONDS=10 \
 ./scripts/run-portable-live-latency-trial.sh \
   arm-portable-teleport-r01 \
   configs/scenarios/latency/teleport.yaml
