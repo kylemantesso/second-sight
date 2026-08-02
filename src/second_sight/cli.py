@@ -12,6 +12,7 @@ from second_sight import __version__
 from second_sight.benchmark import benchmark_model
 from second_sight.faults import inject_file, load_scenario
 from second_sight.features import extract_features, valid_feature_csv, write_feature_csv
+from second_sight.heldout import aggregate_heldout_evaluations
 from second_sight.latency import aggregate_latency_runs
 from second_sight.model import evaluate_model, train_model
 from second_sight.stream import iter_events, summarize_stream
@@ -105,6 +106,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     latency_report_parser.add_argument("traces", type=Path, nargs="+")
     latency_report_parser.add_argument("--output", type=Path, required=True)
+    heldout_report_parser = subcommands.add_parser(
+        "heldout-report", help="aggregate disjoint clean and injected-fault evaluations"
+    )
+    heldout_report_parser.add_argument("--clean-reports", type=Path, nargs="+", required=True)
+    heldout_report_parser.add_argument("--fault-reports", type=Path, nargs="+", required=True)
+    heldout_report_parser.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -216,6 +223,22 @@ def main() -> int:
             print(
                 f"{group['fault_id']:<24} n={group['run_count']} "
                 f"p50={latency['p50']:.3f} ms p99={latency['p99']:.3f} ms"
+            )
+        return 0
+    if args.command == "heldout-report":
+        report = aggregate_heldout_evaluations(
+            args.clean_reports, args.fault_reports, args.output
+        )
+        clean = report["clean_cohort"]
+        print(f"Report:     {args.output}")
+        print(f"Clean runs: {clean['report_count']}")
+        print(f"Clean FPR:  {clean['false_positive_rate']:.3%}")
+        for fault in report["injected_fault_cohort"]["faults"]:
+            rate = fault["detection_rate"]
+            rate_text = f"{rate:.0%}" if rate is not None else "n/a"
+            print(
+                f"{fault['id']}: {fault['detected_runs']}/{fault['evaluable_run_count']} "
+                f"({rate_text})"
             )
         return 0
     return 2

@@ -91,3 +91,26 @@ final detection-rate claim.
 The current 35-second recording is enough to validate the pipeline but not to
 support a credible detection-rate claim. Final model selection and every
 performance claim must use broader clean data and Arm Linux measurements.
+
+## No-leakage configuration baseline
+
+The bundled Open AD Kit source contains one map scenario with two planner
+configurations (`pass` and `fail`); it does not yet provide genuinely different
+routes. The following repeatable baseline trains only on `pass` clean features
+and evaluates the disjoint `fail` cohort clean and with deterministic injected
+faults. It rejects hold-out recordings with fewer than 300 complete ticks, so
+every six-fault scenario has an evaluable interval:
+
+```bash
+./scripts/run-heldout-configuration-validation.sh heldout-pass-train-fail-eval pass fail
+```
+
+The output explicitly labels itself a held-out *configuration* result. It is
+useful leakage-resistant evidence, but it must not be presented as varied-route
+generalization. Run the complementary `fail pass` split before drawing even a
+configuration-level conclusion. New route/traffic scenarios are still required
+for a varied-route claim.
+
+The current two-direction result and its high held-out clean false-positive
+rates are documented in
+[`../reports/heldout-configuration-validation.md`](../reports/heldout-configuration-validation.md).

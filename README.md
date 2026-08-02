@@ -97,6 +97,13 @@ timing harness are integrated. The next milestone is repeated live measurement
 on Arm Linux plus evaluation on varied routes before any end-to-end performance
 or general detection-rate claim.
 
+The first no-leakage `pass`/`fail` planner-configuration validation is now
+recorded in
+[`reports/heldout-configuration-validation.md`](reports/heldout-configuration-validation.md).
+It detects the deterministic test faults but exposes an unacceptable 3.183–8.300%
+clean false-positive rate, so it is diagnostic evidence rather than a deployment
+claim. Genuinely varied routes remain the next required data milestone.
+
 The integrated stack includes Foxglove Bridge at `ws://localhost:8765`; see
 [`components/dashboard/README.md`](components/dashboard/README.md).
 
