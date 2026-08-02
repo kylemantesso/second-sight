@@ -147,3 +147,36 @@ uv run second-sight latency-report reports/measurements/arm-fast-20260802-*.json
 The report groups runs by fault and first decision path, and emits min, p50,
 p95, p99, and max for the three live latency intervals. It rejects a trace
 without exactly one stop request rather than silently mixing incomplete runs.
+
+## Causally validate the delayed teleport path
+
+The short Open AD Kit scenario ends naturally before the reference
+trajectory-hybrid path always reaches a teleport decision. It must therefore
+not be used to report teleport timing. Use the portable replay runner instead:
+
+```bash
+./scripts/run-portable-live-latency-trial.sh \
+  arm-portable-teleport-r01 \
+  configs/scenarios/latency/teleport.yaml
+```
+
+This starts the fault injector, watchdog, latency monitor, and a clean ROS 2
+publisher on one Docker DDS network. The publisher loops indefinitely, but a
+trial is rejected if its first 34.6-second replay cycle ends before Second
+Sight requests a stop. It also rejects any result not attributed to
+`trajectory_hybrid`, and runs with liveness and the perception fast path
+disabled. The default 20-second fault-to-stop bound leaves more than 10 seconds
+before the source would end; override it only with a documented reason:
+
+```bash
+SECOND_SIGHT_MAX_FAULT_TO_STOP_MS=20000 \
+./scripts/run-portable-live-latency-trial.sh \
+  arm-portable-teleport-r01 \
+  configs/scenarios/latency/teleport.yaml
+```
+
+The runner writes a source log and metadata setting
+`source_completed_before_decision=false` alongside the raw trace. Preserve all
+three files privately before using the trace in any aggregate. This proves the
+fault-to-request measurement occurred while perception continued; it does not
+measure service acknowledgement, vehicle response, or a two-machine latency.
