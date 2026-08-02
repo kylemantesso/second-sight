@@ -62,6 +62,25 @@ measurement before reset. Preserve the raw JSONL in the private
 benchmark-artifact bucket together with the model hash, scenario, host facts,
 image digests, and command line.
 
+## Capture CPU and memory in the same run
+
+In a second shell on the Arm host, start the sampler after the integrated
+containers are healthy and before the fault interval begins:
+
+```bash
+./scripts/capture-container-resources.sh \
+  "reports/measurements/${output%.jsonl}-resources.tsv" \
+  90 1
+```
+
+It records Docker's one-shot `cpu_percent`, `memory_usage_limit`, and
+`memory_percent` values once per second for `second-sight`, the fault injector,
+the simulator, and planning control. The raw TSV must accompany the latency
+JSONL in private artifact storage. For each aligned sample, report watchdog
+CPU as its Docker CPU percentage divided by the sum of those four core
+containers' CPU percentages. State this denominator explicitly; it is not a
+whole-host CPU percentage and it excludes the dashboard and visualizer.
+
 ## Reporting rules
 
 Before publishing a result, repeat enough independent runs to report count,
