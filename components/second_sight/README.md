@@ -77,6 +77,16 @@ SECOND_SIGHT_NODE_ARGS="--enable-perception-fast-path" \
   models/hybrid-25tree.joblib
 ```
 
+For a ROS-independent portable clean stream (useful on a benchmark host that
+does not retain the bag), run:
+
+```bash
+SECOND_SIGHT_NODE_ARGS="--enable-perception-fast-path" \
+./scripts/second-sight-portable-clean-replay-smoke.sh \
+  data/processed/openadkit-clean-20260716T112843Z.jsonl \
+  models/hybrid-25tree.joblib
+```
+
 Verify the opposite assertion, that a corrupted stream requests a dry-run
 stop, with:
 
