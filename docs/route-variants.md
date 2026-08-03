@@ -11,13 +11,35 @@ the versioned source of truth is
 
 | ID | Change from upstream route | Status |
 | --- | --- | --- |
-| `north-approach-right-turn` | Starts on the approximately 230 m predecessor lane, then uses the original right-turn goal. | Not simulator-validated |
-| `extended-right-turn` | Uses the original start, then continues onto the successor of the original goal lane. | Not simulator-validated |
+| `north-approach-right-turn` | Starts on the approximately 230 m predecessor lane, then uses the original right-turn goal. | Validated on Graviton (2026-08-03) |
+| `extended-right-turn` | Uses the original start, then continues onto the successor of the original goal lane. | Rejected: did not reach `WaitingForEngage` |
 
-These are candidate route definitions, not evidence of route diversity. A
+These definitions are not, by themselves, evidence of route diversity. A
 candidate becomes usable only after a smoke recording contains both
 `/perception/object_recognition/detection/objects` and
 `/planning/scenario_planning/trajectory`.
+
+## Arm validation result
+
+The `north-approach-right-turn` smoke recording passed on native Arm Linux
+(`c8g.4xlarge`, Graviton) on 2026-08-03. The 44.427-second recording contained
+441 detection-object messages, 1,621 predicted-object messages, and 8,264
+planning trajectories. Its 113.2 MiB ROS bag and SHA-256 manifest are private
+benchmark artifacts at:
+
+```text
+s3://second-sight-benchmark-artifacts-088711593565-ap-southeast-2/
+runs/route-variant-validation-20260803/north-approach-right-turn/
+```
+
+The SQLite bag SHA-256 is
+`1dc8240599ba04eccfe6b30e26a83c2e653b6f4f666900da7686716cf1582ea3`.
+
+The `extended-right-turn` candidate was tested with the same protocol on the
+same host. The scenario runner reached `PLANNING` but failed to transition to
+`WaitingForEngage`, so it published no usable route trajectory and was rejected.
+It is retained in the versioned configuration only to make that negative result
+reproducible; do not collect data from it.
 
 ## Repeatable smoke protocol
 
@@ -44,7 +66,7 @@ but the local simulator still did not finish Autoware service initialization
 reliably enough to emit a trajectory. Lowering the requested frame rate to 1 Hz
 made initialization slower rather than resolving the issue.
 
-Validate the candidates on the Graviton Linux host instead. Do not treat either
-failed local attempt as a route result, use it for training, or count it toward
-the required three route families (train, validation, and untouched final
-test).
+Validate new candidates on the Graviton Linux host instead. Do not treat either
+failed local attempt or the rejected extended route as a route result, use it
+for training, or count it toward the required three route families (train,
+validation, and untouched final test).

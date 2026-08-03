@@ -124,8 +124,8 @@ bag alone is not enough. Preserve the route identifier in the bag name:
 
 ```bash
 ./scripts/openadkit.sh generate-routes
-OPENADKIT_ROUTE_ID=extended-right-turn \
-OPENADKIT_SCENARIO_PATH=/autoware/scenario-sim/scenario/second-sight-extended-right-turn.yaml \
+OPENADKIT_ROUTE_ID=north-approach-right-turn \
+OPENADKIT_SCENARIO_PATH=/autoware/scenario-sim/scenario/second-sight-north-approach-right-turn.yaml \
 OPENADKIT_TIMEOUT=180 \
 ./scripts/openadkit.sh record 45
 ```
