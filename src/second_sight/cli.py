@@ -10,11 +10,12 @@ from pathlib import Path
 
 from second_sight import __version__
 from second_sight.benchmark import benchmark_model
+from second_sight.cohorts import COHORT_NAMES, select_manifest_cohort_files
 from second_sight.faults import inject_file, load_scenario
 from second_sight.features import extract_features, valid_feature_csv, write_feature_csv
 from second_sight.heldout import aggregate_heldout_evaluations
 from second_sight.latency import aggregate_latency_runs
-from second_sight.model import evaluate_model, train_model
+from second_sight.model import calibrate_model, evaluate_model, train_model
 from second_sight.stream import iter_events, summarize_stream
 
 
@@ -71,6 +72,14 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument("--trees", type=int, default=300)
     train_parser.add_argument("--threshold-quantile", type=float, default=0.99)
     train_parser.add_argument("--min-rows-per-dataset", type=int, default=1)
+    calibrate_parser = subcommands.add_parser(
+        "calibrate", help="freeze hybrid thresholds using clean validation data only"
+    )
+    calibrate_parser.add_argument("datasets", type=Path, nargs="+")
+    calibrate_parser.add_argument("--model", type=Path, required=True)
+    calibrate_parser.add_argument("--output", type=Path, required=True)
+    calibrate_parser.add_argument("--target-clean-fpr", type=float, default=0.01)
+    calibrate_parser.add_argument("--min-rows-per-dataset", type=int, default=1)
     evaluate_parser = subcommands.add_parser("evaluate", help="evaluate a model on an event stream")
     evaluate_parser.add_argument("stream", type=Path)
     evaluate_parser.add_argument("--model", type=Path, required=True)
@@ -112,6 +121,13 @@ def build_parser() -> argparse.ArgumentParser:
     heldout_report_parser.add_argument("--clean-reports", type=Path, nargs="+", required=True)
     heldout_report_parser.add_argument("--fault-reports", type=Path, nargs="+", required=True)
     heldout_report_parser.add_argument("--output", type=Path, required=True)
+    cohort_files_parser = subcommands.add_parser(
+        "cohort-files", help="list one frozen cohort's route-matched artifacts"
+    )
+    cohort_files_parser.add_argument("--manifest", type=Path, required=True)
+    cohort_files_parser.add_argument("--cohort", choices=COHORT_NAMES, required=True)
+    cohort_files_parser.add_argument("--directory", type=Path, required=True)
+    cohort_files_parser.add_argument("--suffix", required=True)
     return parser
 
 
@@ -182,6 +198,23 @@ def main() -> int:
         print(f"Features:    {len(metadata['feature_names'])}")
         print(f"Threshold:   {metadata['threshold']:.6f}")
         return 0
+    if args.command == "calibrate":
+        metadata = calibrate_model(
+            args.model,
+            args.datasets,
+            args.output,
+            target_clean_fpr=args.target_clean_fpr,
+            min_rows_per_dataset=args.min_rows_per_dataset,
+        )
+        calibration = metadata["calibration"]
+        print(f"Model:       {args.output}")
+        print(f"Validation:  {calibration['validation_rows']} clean ticks")
+        print(f"Target FPR:  {calibration['target_clean_fpr']:.3%}")
+        print(
+            "Observed FPR: "
+            f"{calibration['observed_validation_false_positive_rate']:.3%}"
+        )
+        return 0
     if args.command == "evaluate":
         report = evaluate_model(
             args.stream, args.model, args.ground_truth, args.output, mode=args.mode
@@ -240,6 +273,12 @@ def main() -> int:
                 f"{fault['id']}: {fault['detected_runs']}/{fault['evaluable_run_count']} "
                 f"({rate_text})"
             )
+        return 0
+    if args.command == "cohort-files":
+        for path in select_manifest_cohort_files(
+            args.manifest, args.cohort, args.directory, suffix=args.suffix
+        ):
+            print(path)
         return 0
     return 2
 

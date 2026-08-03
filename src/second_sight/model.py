@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -323,6 +325,102 @@ def train_model(
         json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
     )
     return metadata
+
+
+def file_sha256(path: Path) -> str:
+    """Return a SHA-256 digest without loading a model twice into memory."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def calibration_matrix(
+    datasets: list[Path], min_rows_per_dataset: int
+) -> tuple[np.ndarray, list[str]]:
+    """Read the production-model columns from validation-only feature CSVs."""
+    selected_indices = [FEATURE_NAMES.index(name) for name in MODEL_FEATURE_NAMES]
+    rows = []
+    included = []
+    for dataset in datasets:
+        _, values = read_feature_csv(dataset)
+        if len(values) < min_rows_per_dataset:
+            continue
+        rows.extend([[row[index] for index in selected_indices] for row in values])
+        included.append(str(dataset))
+    if not rows:
+        raise ValueError("no validation datasets met the minimum row requirement")
+    return np.asarray(rows, dtype=np.float64), included
+
+
+def upper_tail_threshold(values: np.ndarray, allocation: float, *, strict: bool) -> float:
+    """Choose a deterministic empirical upper-tail threshold.
+
+    ``strict`` is used for the forest's ``>=`` decision so ties at the chosen
+    rank cannot exceed the allocation.  Guardrails use a strict ``>`` decision
+    and therefore retain the exact selected value.
+    """
+    selected = float(np.quantile(values, 1 - allocation, method="higher"))
+    return float(np.nextafter(selected, np.inf)) if strict else selected
+
+
+def calibrate_model(
+    source_model_path: Path,
+    validation_datasets: list[Path],
+    output: Path,
+    *,
+    target_clean_fpr: float = 0.01,
+    min_rows_per_dataset: int = 1,
+) -> dict[str, Any]:
+    """Freeze hybrid thresholds using clean validation data only.
+
+    The forest and guardrail branches each receive half of the prescribed FPR
+    budget.  Their OR is then bounded by the sum of those budgets on the
+    calibration cohort, without looking at faults or final-test streams.
+    """
+    if not 0 < target_clean_fpr < 0.5:
+        raise ValueError("target clean FPR must be between 0 and 0.5")
+    if min_rows_per_dataset <= 0:
+        raise ValueError("minimum rows per dataset must be positive")
+    bundle = joblib.load(source_model_path)
+    metadata = bundle["metadata"]
+    if metadata["feature_names"] != list(MODEL_FEATURE_NAMES):
+        raise ValueError("model feature schema does not match this package")
+    matrix, included = calibration_matrix(validation_datasets, min_rows_per_dataset)
+    scores = score_feature_matrix(bundle, matrix, "hybrid")
+    allocation = target_clean_fpr / 2
+    forest_threshold = upper_tail_threshold(scores["forest_scores"], allocation, strict=True)
+    guardrail_threshold = upper_tail_threshold(scores["guardrail_scores"], allocation, strict=False)
+
+    frozen_bundle = deepcopy(bundle)
+    frozen_metadata = frozen_bundle["metadata"]
+    frozen_metadata["threshold"] = forest_threshold
+    frozen_metadata["guardrail_threshold"] = guardrail_threshold
+    frozen_scores = score_feature_matrix(frozen_bundle, matrix, "hybrid")
+    predictions = np.asarray(frozen_scores["predictions"], dtype=bool)
+    calibration = {
+        "method": "validation_upper_tail_split_budget",
+        "target_clean_fpr": target_clean_fpr,
+        "branch_allocation": allocation,
+        "validation_datasets": included,
+        "validation_rows": int(len(matrix)),
+        "source_model": str(source_model_path),
+        "source_model_sha256": file_sha256(source_model_path),
+        "forest_threshold_before": float(metadata["threshold"]),
+        "forest_threshold_after": forest_threshold,
+        "guardrail_threshold_before": float(metadata["guardrail_threshold"]),
+        "guardrail_threshold_after": guardrail_threshold,
+        "observed_validation_false_positive_rate": float(predictions.mean()),
+        "observed_validation_false_positive_ticks": int(predictions.sum()),
+    }
+    frozen_metadata["calibration"] = calibration
+    output.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(frozen_bundle, output)
+    output.with_suffix(".metadata.json").write_text(
+        json.dumps(frozen_metadata, indent=2) + "\n", encoding="utf-8"
+    )
+    return frozen_metadata
 
 
 def evaluate_model(

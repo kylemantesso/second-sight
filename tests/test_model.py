@@ -8,6 +8,7 @@ from second_sight.model import (
     MODEL_FEATURE_NAMES,
     PERCEPTION_GUARDRAIL_FEATURES,
     SecondSightScorer,
+    calibrate_model,
     learn_guardrails,
     score_guardrails,
     select_guardrail_violations,
@@ -84,3 +85,38 @@ def test_optimized_guardrail_scorer_matches_reference_decisions(tmp_path: Path) 
         assert actual["guardrail_score"] == expected["guardrail_score"]
         assert actual["guardrail_features"] == expected["guardrail_features"]
         assert actual["forest_score"] is None
+
+
+def test_calibration_freezes_validation_only_hybrid_thresholds(tmp_path: Path) -> None:
+    def write_clean(path: Path, offset: float) -> None:
+        rows = []
+        for index in range(100):
+            row = {name: 0.0 for name in FEATURE_NAMES}
+            row["timestamp_ns"] = index
+            row["source_age_ms"] = offset + index
+            row["object_count"] = 1 + (index % 3)
+            rows.append(row)
+        write_feature_csv(path, rows)
+
+    training = tmp_path / "training.csv"
+    validation = tmp_path / "validation.csv"
+    write_clean(training, 0.0)
+    write_clean(validation, 10.0)
+    source_model = tmp_path / "source.joblib"
+    frozen_model = tmp_path / "frozen.joblib"
+    train_model([training], source_model, trees=5)
+
+    metadata = calibrate_model(
+        source_model,
+        [validation],
+        frozen_model,
+        target_clean_fpr=0.1,
+        min_rows_per_dataset=50,
+    )
+
+    calibration = metadata["calibration"]
+    assert frozen_model.exists()
+    assert calibration["validation_datasets"] == [str(validation)]
+    assert calibration["validation_rows"] == 100
+    assert calibration["target_clean_fpr"] == 0.1
+    assert calibration["observed_validation_false_positive_rate"] <= 0.1
