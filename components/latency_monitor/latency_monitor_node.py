@@ -31,6 +31,9 @@ class LatencyMonitorNode(Node):
         self.create_subscription(
             String, "/second_sight/latency/safe_stop_requested", self.on_safe_stop, 10
         )
+        self.create_subscription(
+            String, "/second_sight/latency/safe_stop_response", self.on_safe_stop_response, 10
+        )
         self.get_logger().info(f"latency monitor writing JSONL to {self.output_path}")
 
     def payload(self, message: String, topic: str) -> dict[str, Any] | None:
@@ -97,6 +100,22 @@ class LatencyMonitorNode(Node):
             )
         except (KeyError, TypeError, ValueError):
             self.get_logger().warning("ignoring malformed safe-stop timing payload")
+            return
+        if measurement is not None:
+            self.write(measurement)
+
+    def on_safe_stop_response(self, message: String) -> None:
+        payload = self.payload(message, "/second_sight/latency/safe_stop_response")
+        if payload is None:
+            return
+        try:
+            measurement = self.tracker.record_safe_stop_response(
+                int(payload["monotonic_ns"]),
+                bool(payload["accepted"]),
+                str(payload["message"]) if payload.get("message") is not None else None,
+            )
+        except (KeyError, TypeError, ValueError):
+            self.get_logger().warning("ignoring malformed safe-stop response timing payload")
             return
         if measurement is not None:
             self.write(measurement)

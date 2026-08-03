@@ -38,9 +38,14 @@ export SECOND_SIGHT_MODEL_PATH="${SECOND_SIGHT_MODEL_PATH:-$root_dir/models/hybr
 export SECOND_SIGHT_SCENARIO_PATH="$scenario_path"
 export SECOND_SIGHT_LATENCY_OUTPUT="$run_id.jsonl"
 export OPENADKIT_TIMEOUT="${OPENADKIT_TIMEOUT:-300}"
+expect_safe_stop_response="${SECOND_SIGHT_EXPECT_SAFE_STOP_RESPONSE:-false}"
 
 if [[ ! -f "$SECOND_SIGHT_MODEL_PATH" ]]; then
   echo "Model is missing: $SECOND_SIGHT_MODEL_PATH" >&2
+  exit 1
+fi
+if [[ "$expect_safe_stop_response" != true && "$expect_safe_stop_response" != false ]]; then
+  echo "SECOND_SIGHT_EXPECT_SAFE_STOP_RESPONSE must be true or false." >&2
   exit 1
 fi
 
@@ -74,7 +79,9 @@ sampler_pid=$!
 
 deadline=$(( $(date +%s) + timeout_seconds ))
 while (( $(date +%s) < deadline )); do
-  if [[ -s "$latency_path" ]] && grep -q '"event":"safe_stop_requested"' "$latency_path"; then
+  if [[ -s "$latency_path" ]] && grep -q '"event":"safe_stop_requested"' "$latency_path" \
+    && { [[ "$expect_safe_stop_response" == false ]] \
+      || grep -q '"accepted":true.*"event":"safe_stop_response"' "$latency_path"; }; then
     break
   fi
   sleep 1
@@ -92,11 +99,17 @@ if [[ ! -s "$latency_path" ]] || ! grep -q '"event":"safe_stop_requested"' "$lat
   echo "Trial timed out without a safe-stop-request timing record: $latency_path" >&2
   exit 1
 fi
+if [[ "$expect_safe_stop_response" == true ]] \
+  && ! grep -q '"accepted":true.*"event":"safe_stop_response"' "$latency_path"; then
+  echo "Trial did not receive an accepted Autoware safe-stop response: $latency_path" >&2
+  exit 1
+fi
 
 {
   echo "run_id=$run_id"
   echo "scenario_path=$SECOND_SIGHT_SCENARIO_PATH"
   echo "model_path=$SECOND_SIGHT_MODEL_PATH"
+  echo "expect_safe_stop_response=$expect_safe_stop_response"
   echo "git_revision=$(git -C "$root_dir" rev-parse HEAD)"
   echo "model_sha256=$(sha256sum "$SECOND_SIGHT_MODEL_PATH" | cut -d ' ' -f1)"
   echo "host=$(hostname)"

@@ -162,6 +162,9 @@ class SecondSightNode(Node):
         self.stop_event_publisher = self.create_publisher(
             String, "/second_sight/latency/safe_stop_requested", 10
         )
+        self.stop_response_event_publisher = self.create_publisher(
+            String, "/second_sight/latency/safe_stop_response", 10
+        )
         self.stop_client = self.create_client(SetStop, "/control/vehicle_cmd_gate/set_stop")
         if self.liveness is not None:
             timer_period_seconds = min(max(liveness_timeout_ms / 4_000, 0.01), 0.1)
@@ -349,10 +352,27 @@ class SecondSightNode(Node):
     def on_stop_response(self, future: Any) -> None:
         try:
             response = future.result()
-            if response.status.success:
+            response_monotonic_ns = time.monotonic_ns()
+            accepted = bool(response.status.success)
+            message = str(response.status.message)
+            self.stop_response_event_publisher.publish(
+                String(
+                    data=json.dumps(
+                        {
+                            "schema_version": 1,
+                            "event": "safe_stop_response",
+                            "monotonic_ns": response_monotonic_ns,
+                            "accepted": accepted,
+                            "message": message,
+                        },
+                        separators=(",", ":"),
+                    )
+                )
+            )
+            if accepted:
                 self.get_logger().warning("Autoware accepted the safe-stop request")
             else:
-                self.get_logger().error(f"safe-stop rejected: {response.status.message}")
+                self.get_logger().error(f"safe-stop rejected: {message}")
                 self.stop_requested = False
         except Exception as error:
             self.get_logger().error(f"safe-stop request failed: {error}")

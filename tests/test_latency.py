@@ -86,6 +86,28 @@ def test_tracker_buffers_stop_that_arrives_before_fault_telemetry() -> None:
     assert stop["fault_to_safe_stop_ms"] == 40.0
 
 
+def test_tracker_records_autoware_safe_stop_response() -> None:
+    tracker = LatencyTracker()
+    tracker.record_fault("vanish-car", "vanish", 1_000_000_000)
+    tracker.record_anomaly(1_020_000_000, path="trajectory_hybrid")
+    assert tracker.record_safe_stop(1_025_000_000, path="trajectory_hybrid") is not None
+
+    response = tracker.record_safe_stop_response(1_028_000_000, True, "accepted")
+
+    assert response == {
+        "event": "safe_stop_response",
+        "fault_id": "vanish-car",
+        "fault_type": "vanish",
+        "injected_monotonic_ns": 1_000_000_000,
+        "safe_stop_monotonic_ns": 1_025_000_000,
+        "safe_stop_response_monotonic_ns": 1_028_000_000,
+        "accepted": True,
+        "message": "accepted",
+        "safe_stop_to_response_ms": 3.0,
+        "fault_to_safe_stop_response_ms": 28.0,
+    }
+
+
 def test_tracker_ignores_events_without_a_preceding_fault() -> None:
     tracker = LatencyTracker()
 
