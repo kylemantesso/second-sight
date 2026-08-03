@@ -13,6 +13,7 @@ Usage: ./scripts/openadkit.sh COMMAND
 
 Commands:
   setup    Clone the pinned Open AD Kit demo
+  generate-routes  Generate Second Sight route variants in the pinned demo cache
   pull     Clone the demo and download its container images
   start    Start one long-running passing scenario in the background
   run      Run one passing scenario in the foreground
@@ -71,10 +72,21 @@ configure() {
   export NGROK_AUTHTOKEN="${NGROK_AUTHTOKEN:-}"
   export NGROK_URL="${NGROK_URL:-}"
   export TIMEOUT="${OPENADKIT_TIMEOUT:-3600}"
+  export OPENADKIT_FRAME_RATE="${OPENADKIT_FRAME_RATE:-20}"
+  if [[ ! "$OPENADKIT_FRAME_RATE" =~ ^[1-9][0-9]*$ ]]; then
+    echo "OPENADKIT_FRAME_RATE must be a positive integer." >&2
+    exit 1
+  fi
   export SECOND_SIGHT_ROOT="$ROOT_DIR"
   export SECOND_SIGHT_MODEL_PATH="${SECOND_SIGHT_MODEL_PATH:-$ROOT_DIR/models/hybrid-25tree.joblib}"
   export SECOND_SIGHT_SCENARIO_PATH="${SECOND_SIGHT_SCENARIO_PATH:-$ROOT_DIR/configs/scenarios/all-faults.yaml}"
   export SECOND_SIGHT_LATENCY_OUTPUT="${SECOND_SIGHT_LATENCY_OUTPUT:-live.jsonl}"
+  export OPENADKIT_SCENARIO_PATH="${OPENADKIT_SCENARIO_PATH:-/autoware/scenario-sim/scenario/yield_maneuver_demo.yaml}"
+  export OPENADKIT_ROUTE_ID="${OPENADKIT_ROUTE_ID:-yield-maneuver}"
+  if [[ ! "$OPENADKIT_ROUTE_ID" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+    echo "OPENADKIT_ROUTE_ID must contain lowercase letters, digits, and hyphens." >&2
+    exit 1
+  fi
   export SECOND_SIGHT_UID="${SECOND_SIGHT_UID:-$(id -u)}"
   export SECOND_SIGHT_GID="${SECOND_SIGHT_GID:-$(id -g)}"
   COMPOSE=(
@@ -91,6 +103,13 @@ case "$command" in
     require_docker
     setup
     echo "Open AD Kit is pinned at $OPENADKIT_REF"
+    ;;
+  generate-routes)
+    setup
+    uv run --project "$ROOT_DIR" python "$ROOT_DIR/scripts/generate-route-variants.py" \
+      --base "$OPENADKIT_DIR/docker/etc/simulation/scenario/yield_maneuver_demo.yaml" \
+      --variants "$ROOT_DIR/configs/scenarios/route-variants.yaml" \
+      --output-dir "$OPENADKIT_DIR/docker/etc/simulation/scenario"
     ;;
   pull)
     require_docker
@@ -132,13 +151,16 @@ case "$command" in
       exit 1
     fi
 
-    "${COMPOSE[@]}" up --detach --no-deps visualizer planning-control
+    "${COMPOSE[@]}" up --detach --no-deps planning-control
+    if [[ "${OPENADKIT_WITH_VISUALIZER:-0}" == "1" ]]; then
+      "${COMPOSE[@]}" up --detach --no-deps visualizer
+    fi
     "${COMPOSE[@]}" up --detach --force-recreate simulator
     echo "Waiting for the trajectory stream..."
     "${COMPOSE[@]}" exec -T planning-control bash -lc \
       "source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash && timeout 120 ros2 topic echo --once /planning/scenario_planning/trajectory >/dev/null"
 
-    bag_name="openadkit-clean-${variant}-$(date -u +%Y%m%dT%H%M%SZ)"
+    bag_name="openadkit-clean-${OPENADKIT_ROUTE_ID}-${variant}-$(date -u +%Y%m%dT%H%M%SZ)"
     container_bag="/tmp/$bag_name"
     host_bag="$ROOT_DIR/data/raw/$bag_name"
     docker exec planning-control bash -lc \

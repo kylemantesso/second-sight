@@ -114,3 +114,23 @@ for a varied-route claim.
 The current two-direction result and its high held-out clean false-positive
 rates are documented in
 [`../reports/heldout-configuration-validation.md`](../reports/heldout-configuration-validation.md).
+
+## Route-family validation before collection
+
+Before using a candidate as a training, validation, or final-test route family,
+generate it and make one 45-second smoke recording. Confirm it contains both
+the detection-object and planning-trajectory topics; a successfully created
+bag alone is not enough. Preserve the route identifier in the bag name:
+
+```bash
+./scripts/openadkit.sh generate-routes
+OPENADKIT_ROUTE_ID=extended-right-turn \
+OPENADKIT_SCENARIO_PATH=/autoware/scenario-sim/scenario/second-sight-extended-right-turn.yaml \
+OPENADKIT_TIMEOUT=180 \
+OPENADKIT_FRAME_RATE=1 \
+./scripts/openadkit.sh record 45
+```
+
+Do not tune the model or thresholds against the designated final-test route.
+Only after at least three simulator-validated route families exist should the
+clean corpus be split into train, validation, and untouched final-test cohorts.

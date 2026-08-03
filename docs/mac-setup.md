@@ -81,6 +81,30 @@ Set `OPENADKIT_TIMEOUT` to override the timeout in seconds.
 planning streams for the requested number of seconds. Bags are written under
 `data/raw/` and ignored by Git.
 
+### Candidate route variants
+
+The bundled Open AD Kit scenario has one map route. Generate Second Sight's
+versioned candidate routes before recording them:
+
+```bash
+./scripts/openadkit.sh generate-routes
+OPENADKIT_ROUTE_ID=north-approach-right-turn \
+OPENADKIT_SCENARIO_PATH=/autoware/scenario-sim/scenario/second-sight-north-approach-right-turn.yaml \
+OPENADKIT_TIMEOUT=180 \
+OPENADKIT_FRAME_RATE=1 \
+./scripts/openadkit.sh record 45
+```
+
+`OPENADKIT_ROUTE_ID` is included in the bag directory name so training,
+validation, and final test cohorts remain traceable. A candidate must produce
+both the detection-object and trajectory topics in a smoke recording before it
+is used for data collection. Generated YAML lives only in the ignored pinned
+Open AD Kit cache; its source definition is
+[`../configs/scenarios/route-variants.yaml`](../configs/scenarios/route-variants.yaml).
+The visualizer is omitted during recording to conserve Docker VM memory; set
+`OPENADKIT_WITH_VISUALIZER=1` if visual confirmation is needed. `1` Hz is a
+smoke-test setting for constrained Macs, not a performance-measurement setting.
+
 The local clone is disposable. Remove `.cache/openadkit_demo.autoware/` if a
 clean bootstrap is needed; the next launcher command recreates it at the pinned
 revision.

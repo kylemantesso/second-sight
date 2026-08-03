@@ -102,7 +102,13 @@ recorded in
 [`reports/heldout-configuration-validation.md`](reports/heldout-configuration-validation.md).
 It detects the deterministic test faults but exposes an unacceptable 3.183–8.300%
 clean false-positive rate, so it is diagnostic evidence rather than a deployment
-claim. Genuinely varied routes remain the next required data milestone.
+claim. Candidate route variants are versioned in
+[`configs/scenarios/route-variants.yaml`](configs/scenarios/route-variants.yaml)
+and generated with `./scripts/openadkit.sh generate-routes`; each must be
+simulator-validated before it is used to collect data. Their current validation
+status and retry protocol are in
+[`docs/route-variants.md`](docs/route-variants.md). Genuinely varied routes
+remain the next required data milestone.
 
 The integrated stack includes Foxglove Bridge at `ws://localhost:8765`; see
 [`components/dashboard/README.md`](components/dashboard/README.md).

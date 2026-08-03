@@ -1,0 +1,12 @@
+schema_version: 1
+name: second-sight-route-variants
+base_scenario: yield_maneuver_demo.yaml
+variants:
+  - id: north-approach-right-turn
+    description: Start on the 230 m approach lane before the original ego spawn.
+    ego_start: {lane_id: '2724', s: 5.0, offset: -0.195}
+    ego_goal: {lane_id: '8655', s: 13.3982, offset: -0.2066}
+  - id: extended-right-turn
+    description: Continue beyond the original right-turn goal onto its successor lane.
+    ego_start: {lane_id: '8221', s: 5.012, offset: -0.195}
+    ego_goal: {lane_id: '8672', s: 10.0, offset: -0.2066}
