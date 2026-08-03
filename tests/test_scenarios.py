@@ -4,6 +4,7 @@ import yaml
 
 from second_sight.scenarios import (
     apply_npc_speed,
+    apply_npc_start_position,
     generate_route_variants,
     replace_matching_lane_positions,
 )
@@ -145,6 +146,54 @@ def test_npc_speed_variant_updates_target_and_controller() -> None:
     assert actions[1]["ControllerAction"]["AssignControllerAction"]["Controller"]["Properties"][
         "Property"
     ][0]["value"] == "5.5"
+
+
+def test_npc_start_position_updates_teleport_without_changing_route() -> None:
+    scenario = {
+        "OpenSCENARIO": {
+            "Storyboard": {
+                "Init": {
+                    "Actions": {
+                        "Private": [
+                            {
+                                "entityRef": "Npc1",
+                                "PrivateAction": [
+                                    {
+                                        "TeleportAction": {
+                                            "Position": {
+                                                "LanePosition": {
+                                                    "laneId": "1", "s": 1.0, "offset": 0.0
+                                                }
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "RoutingAction": {
+                                            "AssignRouteAction": {"RouteRef": "unchanged"}
+                                        }
+                                    },
+                                ],
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    apply_npc_start_position(
+        scenario, "Npc1", {"lane_id": "10", "s": 3.0, "offset": -0.1}
+    )
+
+    actions = scenario["OpenSCENARIO"]["Storyboard"]["Init"]["Actions"]["Private"][0][
+        "PrivateAction"
+    ]
+    assert actions[0]["TeleportAction"]["Position"]["LanePosition"] == {
+        "laneId": "10",
+        "s": 3.0,
+        "offset": -0.1,
+    }
+    assert actions[1]["RoutingAction"]["AssignRouteAction"] == {"RouteRef": "unchanged"}
 
 
 def test_goal_position_replacement_updates_story_end_condition_only() -> None:

@@ -62,6 +62,27 @@ def apply_npc_speed(scenario: dict[str, Any], entity_ref: str, speed: float) -> 
         raise ValueError(f"NPC lacks a target or controller speed action: {entity_ref}")
 
 
+def apply_npc_start_position(
+    scenario: dict[str, Any], entity_ref: str, replacement: dict[str, Any]
+) -> None:
+    """Move one NPC's initial teleport position without changing its route."""
+    private_actions = scenario["OpenSCENARIO"]["Storyboard"]["Init"]["Actions"]["Private"]
+    npc = next((action for action in private_actions if action["entityRef"] == entity_ref), None)
+    if npc is None:
+        raise ValueError(f"NPC is not present in the base scenario: {entity_ref}")
+    teleport = next(
+        (
+            action.get("TeleportAction")
+            for action in npc["PrivateAction"]
+            if "TeleportAction" in action
+        ),
+        None,
+    )
+    if teleport is None:
+        raise ValueError(f"NPC lacks an initial teleport action: {entity_ref}")
+    apply_lane_position(teleport["Position"]["LanePosition"], replacement)
+
+
 def replace_matching_lane_positions(
     value: Any, original: dict[str, Any], replacement: dict[str, Any]
 ) -> int:
@@ -114,6 +135,13 @@ def generate_route_variants(
             raise ValueError("npc_speeds must be a mapping of NPC name to positive speed")
         for entity_ref, speed in npc_speeds.items():
             apply_npc_speed(scenario, str(entity_ref), float(speed))
+        npc_start_positions = variant.get("npc_start_positions", {})
+        if not isinstance(npc_start_positions, dict):
+            raise ValueError("npc_start_positions must map NPC names to lane positions")
+        for entity_ref, position in npc_start_positions.items():
+            if not isinstance(position, dict):
+                raise ValueError("NPC start position must be a lane-position mapping")
+            apply_npc_start_position(scenario, str(entity_ref), position)
         output = output_dir / f"second-sight-{variant_id}.yaml"
         output.write_text(yaml.safe_dump(scenario, sort_keys=False), encoding="utf-8")
         outputs.append(output)
