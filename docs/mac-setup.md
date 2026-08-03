@@ -91,7 +91,6 @@ versioned candidate routes before recording them:
 OPENADKIT_ROUTE_ID=north-approach-right-turn \
 OPENADKIT_SCENARIO_PATH=/autoware/scenario-sim/scenario/second-sight-north-approach-right-turn.yaml \
 OPENADKIT_TIMEOUT=180 \
-OPENADKIT_FRAME_RATE=1 \
 ./scripts/openadkit.sh record 45
 ```
 
@@ -102,8 +101,8 @@ is used for data collection. Generated YAML lives only in the ignored pinned
 Open AD Kit cache; its source definition is
 [`../configs/scenarios/route-variants.yaml`](../configs/scenarios/route-variants.yaml).
 The visualizer is omitted during recording to conserve Docker VM memory; set
-`OPENADKIT_WITH_VISUALIZER=1` if visual confirmation is needed. `1` Hz is a
-smoke-test setting for constrained Macs, not a performance-measurement setting.
+`OPENADKIT_WITH_VISUALIZER=1` if visual confirmation is needed. Do not use
+Mac-local simulator timings as performance measurements.
 
 The local clone is disposable. Remove `.cache/openadkit_demo.autoware/` if a
 clean bootstrap is needed; the next launcher command recreates it at the pinned

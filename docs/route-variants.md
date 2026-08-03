@@ -26,7 +26,6 @@ candidate becomes usable only after a smoke recording contains both
 OPENADKIT_ROUTE_ID=north-approach-right-turn \
 OPENADKIT_SCENARIO_PATH=/autoware/scenario-sim/scenario/second-sight-north-approach-right-turn.yaml \
 OPENADKIT_TIMEOUT=180 \
-OPENADKIT_FRAME_RATE=1 \
 ./scripts/openadkit.sh record 45
 ```
 
@@ -34,17 +33,18 @@ OPENADKIT_FRAME_RATE=1 \
 memory during headless validation. Inspect the resulting bag with the existing
 exporter before adding it to any data cohort.
 
-## Current blocker (2026-08-03)
+## Local-development limitation (2026-08-03)
 
 The first local smoke attempt loaded the north-approach scenario but did not
 produce a valid bag. Docker Desktop's Linux VM was limited to 7.65 GiB while
 other Docker workloads were running. Autoware components were OOM-killed, the
 scenario runner then failed to set its velocity limit, and no trajectory became
-available. Lowering the requested frame rate to 1 Hz did not fix the memory
-shortfall.
+available. After raising the Docker VM to 15.6 GiB, the OOM failure disappeared
+but the local simulator still did not finish Autoware service initialization
+reliably enough to emit a trajectory. Lowering the requested frame rate to 1 Hz
+made initialization slower rather than resolving the issue.
 
-Before retrying, either give Docker Desktop more memory or stop unrelated
-Docker workloads, then run each candidate with the command above. Do not treat
-this failed attempt as a route result, use it for training, or count it toward
+Validate the candidates on the Graviton Linux host instead. Do not treat either
+failed local attempt as a route result, use it for training, or count it toward
 the required three route families (train, validation, and untouched final
 test).

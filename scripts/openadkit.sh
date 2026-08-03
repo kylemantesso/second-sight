@@ -158,7 +158,16 @@ case "$command" in
     "${COMPOSE[@]}" up --detach --force-recreate simulator
     echo "Waiting for the trajectory stream..."
     "${COMPOSE[@]}" exec -T planning-control bash -lc \
-      "source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash && timeout 120 ros2 topic echo --once /planning/scenario_planning/trajectory >/dev/null"
+      'source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash &&
+       for attempt in $(seq 1 120); do
+         topic_type="$(ros2 topic type /planning/scenario_planning/trajectory 2>/dev/null || true)"
+         if [[ -n "$topic_type" ]] && timeout 10 ros2 topic echo --once /planning/scenario_planning/trajectory >/dev/null; then
+           exit 0
+         fi
+         sleep 1
+       done
+       echo "Trajectory stream did not become available within 120 seconds." >&2
+       exit 1'
 
     bag_name="openadkit-clean-${OPENADKIT_ROUTE_ID}-${variant}-$(date -u +%Y%m%dT%H%M%SZ)"
     container_bag="/tmp/$bag_name"

@@ -127,7 +127,6 @@ bag alone is not enough. Preserve the route identifier in the bag name:
 OPENADKIT_ROUTE_ID=extended-right-turn \
 OPENADKIT_SCENARIO_PATH=/autoware/scenario-sim/scenario/second-sight-extended-right-turn.yaml \
 OPENADKIT_TIMEOUT=180 \
-OPENADKIT_FRAME_RATE=1 \
 ./scripts/openadkit.sh record 45
 ```
 
