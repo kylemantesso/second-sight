@@ -31,6 +31,13 @@ variants:
     ego_goal: {lane_id: '8586', s: 10.3856, offset: -0.0657}
     npc_start_positions:
       Npc2: {lane_id: '2724', s: 120.0, offset: 0.0593}
+  - id: npc3-crossing-route
+    status: candidate
+    description: Promote Npc3's known crossing route to the ego vehicle.
+    ego_start: {lane_id: '2724', s: 191.143, offset: 0.0593}
+    ego_goal: {lane_id: '8586', s: 2.1981, offset: -0.1575}
+    npc_start_positions:
+      Npc3: {lane_id: '2724', s: 120.0, offset: 0.0593}
   - id: north-slow-traffic
     status: validated
     description: North approach with slower cross traffic, preserving the validated ego route.
