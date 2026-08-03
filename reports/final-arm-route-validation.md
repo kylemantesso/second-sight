@@ -65,6 +65,8 @@ benchmark on a final-route stream measured:
 | p99 inference | 991.062 µs |
 | Mean inference | 812.959 µs |
 | Steady-state workload | 1,227.23 ticks/s during 16.86 s of scoring |
+| Integrated watchdog CPU sample | 10.51% mean; 28.71% max across 7 three-second samples |
+| Integrated watchdog memory sample | 135–195 MiB of the 30.75 GiB host limit |
 
 The workload was prepared for Arm Performix, but a new Performix export was
 not captured in this run: macOS needs the Session Manager plugin installed by
