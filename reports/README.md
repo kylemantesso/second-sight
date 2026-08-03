@@ -15,3 +15,8 @@ The no-leakage planner-configuration quality check is in
 The Arm validation of controlled normal-traffic profiles is in
 [`traffic-variant-validation.md`](traffic-variant-validation.md); it is not a
 varied-route generalization result.
+
+The frozen three-route Arm evaluation, including its clean false-positive rate,
+per-fault held-out results, accepted Autoware stop-service response, benchmark,
+and remaining limitations, is in
+[`final-arm-route-validation.md`](final-arm-route-validation.md).
