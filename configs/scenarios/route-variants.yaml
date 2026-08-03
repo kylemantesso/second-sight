@@ -8,10 +8,15 @@ variants:
     ego_start: {lane_id: '2724', s: 5.0, offset: -0.195}
     ego_goal: {lane_id: '8655', s: 13.3982, offset: -0.2066}
   - id: extended-right-turn
-    status: rejected
-    description: "Rejected candidate: continuing past the original right-turn goal did not engage Autoware."
+    status: candidate
+    description: Continue beyond the original right-turn goal onto its successor lane.
     ego_start: {lane_id: '8221', s: 5.012, offset: -0.195}
-    ego_goal: {lane_id: '8672', s: 10.0, offset: -0.2066}
+    ego_goal: {lane_id: '8672', s: 5.0, offset: -0.2066}
+  - id: straight-through-intersection
+    status: candidate
+    description: Take the straight-through branch from the original ego start.
+    ego_start: {lane_id: '8221', s: 5.012, offset: -0.195}
+    ego_goal: {lane_id: '8212', s: 5.0, offset: -0.195}
   - id: north-slow-traffic
     status: validated
     description: North approach with slower cross traffic, preserving the validated ego route.

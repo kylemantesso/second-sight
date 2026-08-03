@@ -62,6 +62,24 @@ def apply_npc_speed(scenario: dict[str, Any], entity_ref: str, speed: float) -> 
         raise ValueError(f"NPC lacks a target or controller speed action: {entity_ref}")
 
 
+def replace_matching_lane_positions(
+    value: Any, original: dict[str, Any], replacement: dict[str, Any]
+) -> int:
+    """Replace LanePositions equal to ``original`` below an OpenSCENARIO subtree."""
+    replacements = 0
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key == "LanePosition" and child == original:
+                apply_lane_position(child, replacement)
+                replacements += 1
+            else:
+                replacements += replace_matching_lane_positions(child, original, replacement)
+    elif isinstance(value, list):
+        for child in value:
+            replacements += replace_matching_lane_positions(child, original, replacement)
+    return replacements
+
+
 def generate_route_variants(
     base_path: Path, variants_path: Path, output_dir: Path
 ) -> list[Path]:
@@ -85,8 +103,12 @@ def generate_route_variants(
             raise ValueError(f"invalid route variant id: {variant_id}")
         scenario = deepcopy(base)
         start, goal = ego_lane_positions(scenario)
+        original_goal = deepcopy(goal)
         apply_lane_position(start, start_replacement)
         apply_lane_position(goal, goal_replacement)
+        replace_matching_lane_positions(
+            scenario["OpenSCENARIO"]["Storyboard"].get("Story", []), original_goal, goal_replacement
+        )
         npc_speeds = variant.get("npc_speeds", {})
         if not isinstance(npc_speeds, dict):
             raise ValueError("npc_speeds must be a mapping of NPC name to positive speed")

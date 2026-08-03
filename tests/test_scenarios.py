@@ -2,7 +2,11 @@ from pathlib import Path
 
 import yaml
 
-from second_sight.scenarios import apply_npc_speed, generate_route_variants
+from second_sight.scenarios import (
+    apply_npc_speed,
+    generate_route_variants,
+    replace_matching_lane_positions,
+)
 
 
 def test_route_variant_generator_replaces_only_ego_start_and_goal(tmp_path: Path) -> None:
@@ -141,3 +145,24 @@ def test_npc_speed_variant_updates_target_and_controller() -> None:
     assert actions[1]["ControllerAction"]["AssignControllerAction"]["Controller"]["Properties"][
         "Property"
     ][0]["value"] == "5.5"
+
+
+def test_goal_position_replacement_updates_story_end_condition_only() -> None:
+    original = {"laneId": "2", "s": 2.0, "offset": 0.0}
+    replacement = {"lane_id": "20", "s": 4.0, "offset": 0.2}
+    story = {
+        "Act": [
+            {"End": {"LanePosition": dict(original)}},
+            {"Unrelated": {"LanePosition": {"laneId": "3", "s": 2.0, "offset": 0.0}}},
+        ]
+    }
+
+    replacement_count = replace_matching_lane_positions(story, original, replacement)
+
+    assert replacement_count == 1
+    assert story["Act"][0]["End"]["LanePosition"] == {
+        "laneId": "20",
+        "s": 4.0,
+        "offset": 0.2,
+    }
+    assert story["Act"][1]["Unrelated"]["LanePosition"]["laneId"] == "3"
