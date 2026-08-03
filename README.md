@@ -110,6 +110,10 @@ status and retry protocol are in
 [`docs/route-variants.md`](docs/route-variants.md). Genuinely varied routes
 remain the next required data milestone.
 
+Two Arm-validated traffic-speed profiles now supplement the north-approach
+route; their scope and stream counts are recorded in
+[`reports/traffic-variant-validation.md`](reports/traffic-variant-validation.md).
+
 The integrated stack includes Foxglove Bridge at `ws://localhost:8765`; see
 [`components/dashboard/README.md`](components/dashboard/README.md).
 

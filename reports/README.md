@@ -12,3 +12,6 @@ The post-optimization, repeated live Arm validation is in
 [`arm-optimized-fast-path-live-validation.md`](arm-optimized-fast-path-live-validation.md).
 The no-leakage planner-configuration quality check is in
 [`heldout-configuration-validation.md`](heldout-configuration-validation.md).
+The Arm validation of controlled normal-traffic profiles is in
+[`traffic-variant-validation.md`](traffic-variant-validation.md); it is not a
+varied-route generalization result.

@@ -14,6 +14,17 @@ the versioned source of truth is
 | `north-approach-right-turn` | Starts on the approximately 230 m predecessor lane, then uses the original right-turn goal. | Validated on Graviton (2026-08-03) |
 | `extended-right-turn` | Uses the original start, then continues onto the successor of the original goal lane. | Rejected: did not reach `WaitingForEngage` |
 
+## Traffic variants
+
+The following profiles preserve the validated north-approach ego route and all
+NPC paths, changing only NPC target/controller speeds. They are independent
+normal-traffic cohorts, not new map routes.
+
+| ID | Npc1 / Npc2 / Npc3 target speed (m/s) | Status |
+| --- | ---: | --- |
+| `north-slow-traffic` | 5 / 5 / 4 | Validated on Graviton (2026-08-04) |
+| `north-fast-traffic` | 13 / 13 / 12 | Validated on Graviton (2026-08-04) |
+
 These definitions are not, by themselves, evidence of route diversity. A
 candidate becomes usable only after a smoke recording contains both
 `/perception/object_recognition/detection/objects` and
@@ -40,6 +51,11 @@ same host. The scenario runner reached `PLANNING` but failed to transition to
 `WaitingForEngage`, so it published no usable route trajectory and was rejected.
 It is retained in the versioned configuration only to make that negative result
 reproducible; do not collect data from it.
+
+The two validated traffic profiles are detailed in
+[`../reports/traffic-variant-validation.md`](../reports/traffic-variant-validation.md).
+They expand clean traffic coverage but do not satisfy the remaining requirement
+for genuinely distinct route families.
 
 ## Repeatable smoke protocol
 

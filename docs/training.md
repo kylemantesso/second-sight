@@ -133,3 +133,9 @@ OPENADKIT_TIMEOUT=180 \
 Do not tune the model or thresholds against the designated final-test route.
 Only after at least three simulator-validated route families exist should the
 clean corpus be split into train, validation, and untouched final-test cohorts.
+
+The validated slow- and fast-traffic profiles are useful additional normal-data
+cohorts on the same north-approach route. They may improve feature coverage,
+but they are not separate route families and must not be described as
+varied-route test evidence. Their Arm validation record is
+[`../reports/traffic-variant-validation.md`](../reports/traffic-variant-validation.md).
