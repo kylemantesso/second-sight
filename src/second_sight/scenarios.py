@@ -1,4 +1,4 @@
-"""Generate deterministic OpenSCENARIO route variants from a pinned base."""
+"""Generate deterministic OpenSCENARIO route and traffic variants from a pinned base."""
 
 from __future__ import annotations
 
@@ -32,6 +32,36 @@ def apply_lane_position(position: dict[str, Any], replacement: dict[str, Any]) -
     position["offset"] = float(replacement["offset"])
 
 
+def apply_npc_speed(scenario: dict[str, Any], entity_ref: str, speed: float) -> None:
+    """Set one NPC's target and controller speed without altering its route."""
+    if speed <= 0:
+        raise ValueError("NPC speed must be positive")
+
+    private_actions = scenario["OpenSCENARIO"]["Storyboard"]["Init"]["Actions"]["Private"]
+    npc = next((action for action in private_actions if action["entityRef"] == entity_ref), None)
+    if npc is None:
+        raise ValueError(f"NPC is not present in the base scenario: {entity_ref}")
+
+    target_updated = False
+    controller_updated = False
+    for action in npc["PrivateAction"]:
+        speed_action = action.get("LongitudinalAction", {}).get("SpeedAction")
+        if speed_action is not None:
+            speed_action["SpeedActionTarget"]["AbsoluteTargetSpeed"]["value"] = float(speed)
+            target_updated = True
+        controller = action.get("ControllerAction", {}).get("AssignControllerAction", {}).get(
+            "Controller"
+        )
+        if controller is not None:
+            properties = controller.get("Properties", {}).get("Property", [])
+            for property_ in properties:
+                if property_.get("name") == "maxSpeed":
+                    property_["value"] = f"{speed:g}"
+                    controller_updated = True
+    if not target_updated or not controller_updated:
+        raise ValueError(f"NPC lacks a target or controller speed action: {entity_ref}")
+
+
 def generate_route_variants(
     base_path: Path, variants_path: Path, output_dir: Path
 ) -> list[Path]:
@@ -57,6 +87,11 @@ def generate_route_variants(
         start, goal = ego_lane_positions(scenario)
         apply_lane_position(start, start_replacement)
         apply_lane_position(goal, goal_replacement)
+        npc_speeds = variant.get("npc_speeds", {})
+        if not isinstance(npc_speeds, dict):
+            raise ValueError("npc_speeds must be a mapping of NPC name to positive speed")
+        for entity_ref, speed in npc_speeds.items():
+            apply_npc_speed(scenario, str(entity_ref), float(speed))
         output = output_dir / f"second-sight-{variant_id}.yaml"
         output.write_text(yaml.safe_dump(scenario, sort_keys=False), encoding="utf-8")
         outputs.append(output)

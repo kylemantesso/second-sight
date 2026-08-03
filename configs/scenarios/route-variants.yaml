@@ -12,3 +12,15 @@ variants:
     description: "Rejected candidate: continuing past the original right-turn goal did not engage Autoware."
     ego_start: {lane_id: '8221', s: 5.012, offset: -0.195}
     ego_goal: {lane_id: '8672', s: 10.0, offset: -0.2066}
+  - id: north-slow-traffic
+    status: candidate
+    description: North approach with slower cross traffic, preserving the validated ego route.
+    ego_start: {lane_id: '2724', s: 5.0, offset: -0.195}
+    ego_goal: {lane_id: '8655', s: 13.3982, offset: -0.2066}
+    npc_speeds: {Npc1: 5.0, Npc2: 5.0, Npc3: 4.0}
+  - id: north-fast-traffic
+    status: candidate
+    description: North approach with faster cross traffic, preserving the validated ego route.
+    ego_start: {lane_id: '2724', s: 5.0, offset: -0.195}
+    ego_goal: {lane_id: '8655', s: 13.3982, offset: -0.2066}
+    npc_speeds: {Npc1: 13.0, Npc2: 13.0, Npc3: 12.0}
