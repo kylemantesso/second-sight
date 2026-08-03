@@ -1,0 +1,21 @@
+schema_version: 1
+name: final-arm-route-split-20260804
+frozen: true
+frozen_at_utc: '2026-08-03T23:06:26Z'
+purpose: >-
+  Final no-leakage Arm evaluation. Route-family assignment was frozen after
+  native-Graviton smoke validation and before model training or calibration.
+collection_requirements:
+  platform: AWS Graviton c8g.4xlarge, ap-southeast-2
+  minimum_complete_ticks_per_recording: 300
+  clean_recordings_per_route: 3
+cohorts:
+  train:
+    route_ids:
+      - north-approach-right-turn
+  validation:
+    route_ids:
+      - npc1-crossing-route
+  final_test:
+    route_ids:
+      - npc3-crossing-route

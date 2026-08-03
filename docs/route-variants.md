@@ -12,7 +12,10 @@ the versioned source of truth is
 | ID | Change from upstream route | Status |
 | --- | --- | --- |
 | `north-approach-right-turn` | Starts on the approximately 230 m predecessor lane, then uses the original right-turn goal. | Validated on Graviton (2026-08-03) |
+| `npc1-crossing-route` | Promotes the simulator's first NPC crossing route to ego, moving that NPC clear of its original start. | Validated on Graviton (2026-08-03) |
+| `npc3-crossing-route` | Promotes the simulator's third NPC crossing route to ego, moving that NPC behind the new ego start. | Validated on Graviton (2026-08-03) |
 | `extended-right-turn` | Uses the original start, then continues onto the successor of the original goal lane. | Rejected: did not reach `WaitingForEngage` |
+| `npc2-crossing-route` | Promotes the simulator's second NPC crossing route to ego. | Rejected: Autoware could not establish a route trajectory |
 
 ## Traffic variants
 
@@ -86,3 +89,20 @@ Validate new candidates on the Graviton Linux host instead. Do not treat either
 failed local attempt or the rejected extended route as a route result, use it
 for training, or count it toward the required three route families (train,
 validation, and untouched final test).
+
+## Frozen final split
+
+Three distinct ego-route families now have valid Arm smoke recordings. Their
+train/validation/final-test assignment is frozen in
+[`../configs/cohorts/final-arm-route-split-20260804.yaml`](../configs/cohorts/final-arm-route-split-20260804.yaml):
+
+| Cohort | Route family | Smoke evidence |
+| --- | --- | --- |
+| Train | `north-approach-right-turn` | 44.427 s, 441 detection frames, 8,264 trajectories |
+| Validation | `npc1-crossing-route` | 44.252 s, 441 detection frames, 8,611 trajectories |
+| Final test | `npc3-crossing-route` | 44.534 s, 444 detection frames, 9,121 trajectories |
+
+The final-test route must never be used to choose features, tune the model, or
+calibrate thresholds. The `npc2-crossing-route` attempt was rejected after
+Autoware did not publish a route trajectory. Its failure is retained in the
+versioned configuration for reproducibility, but it is not part of the split.

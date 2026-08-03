@@ -18,21 +18,21 @@ variants:
     ego_start: {lane_id: '8221', s: 5.012, offset: -0.195}
     ego_goal: {lane_id: '8212', s: 5.0, offset: -0.195}
   - id: npc1-crossing-route
-    status: candidate
+    status: validated
     description: Promote Npc1's known crossing route to the ego vehicle.
     ego_start: {lane_id: '524', s: 2.4883, offset: -0.0846}
     ego_goal: {lane_id: '8633', s: 0.095, offset: 0.0544}
     npc_start_positions:
       Npc1: {lane_id: '2724', s: 120.0, offset: 0.0593}
   - id: npc2-crossing-route
-    status: candidate
+    status: rejected
     description: Promote Npc2's known crossing route to the ego vehicle.
     ego_start: {lane_id: '407', s: 18.6792, offset: -0.1775}
     ego_goal: {lane_id: '8586', s: 10.3856, offset: -0.0657}
     npc_start_positions:
       Npc2: {lane_id: '2724', s: 120.0, offset: 0.0593}
   - id: npc3-crossing-route
-    status: candidate
+    status: validated
     description: Promote Npc3's known crossing route to the ego vehicle.
     ego_start: {lane_id: '2724', s: 191.143, offset: 0.0593}
     ego_goal: {lane_id: '8586', s: 2.1981, offset: -0.1575}

@@ -139,3 +139,32 @@ cohorts on the same north-approach route. They may improve feature coverage,
 but they are not separate route families and must not be described as
 varied-route test evidence. Their Arm validation record is
 [`../reports/traffic-variant-validation.md`](../reports/traffic-variant-validation.md).
+
+## Frozen final Arm route split
+
+The final split is defined by the committed, frozen manifest
+[`../configs/cohorts/final-arm-route-split-20260804.yaml`](../configs/cohorts/final-arm-route-split-20260804.yaml).
+It assigns one validated ego-route family each to training, validation, and the
+untouched final test. Route IDs are matched as complete filename prefixes, so
+hyphens cannot cause a final-test recording to leak into an earlier cohort.
+
+After collecting the required clean Arm recordings, export them without
+training a model:
+
+```bash
+./scripts/process-clean-data.sh configs/cohorts/final-arm-route-split-20260804.yaml
+```
+
+Then run the immutable final pipeline once on Arm Linux:
+
+```bash
+./scripts/run-final-route-validation.sh final-arm-route-20260804 \
+  configs/cohorts/final-arm-route-split-20260804.yaml
+```
+
+The runner trains a 25-tree forest on the train route only. It freezes the
+forest and guardrail thresholds using only clean validation data, with a
+predeclared 1% clean-FPR budget split between the two hybrid branches. Only
+then does it score the untouched final-test route clean and after all six
+deterministic faults. It refuses to overwrite an existing run ID and writes
+SHA-256 hashes for the manifest, models, reports, and scenario definitions.
