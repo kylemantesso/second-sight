@@ -68,8 +68,8 @@ benchmark on a final-route stream measured:
 | Integrated watchdog CPU sample | 10.51% mean; 28.71% max across 7 three-second samples |
 | Integrated watchdog memory sample | 135–195 MiB of the 30.75 GiB host limit |
 
-The workload was prepared for Arm Performix, but a new Performix export was
-not captured in this run: macOS needs the Session Manager plugin installed by
-an administrator before its private SSM tunnel can start. Do not substitute the
-native benchmark for a Performix report; rerun the documented recipe after
-that local prerequisite is installed.
+Arm Performix also profiled this exact frozen model and stream: 120 host
+samples at 0.5-second intervals showed 6.335% mean whole-host CPU, with one
+core averaging 97.254%. See
+[`arm-performix-final-profile.md`](arm-performix-final-profile.md) for the
+scope, cgroup limitation, run ID, and private export checksum.

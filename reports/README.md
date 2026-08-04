@@ -20,3 +20,5 @@ The frozen three-route Arm evaluation, including its clean false-positive rate,
 per-fault held-out results, accepted Autoware stop-service response, benchmark,
 and remaining limitations, is in
 [`final-arm-route-validation.md`](final-arm-route-validation.md).
+Its matching final Arm Performix System Utilization profile is in
+[`arm-performix-final-profile.md`](arm-performix-final-profile.md).
