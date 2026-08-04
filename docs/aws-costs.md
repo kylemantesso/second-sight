@@ -31,7 +31,8 @@ that minimum.
 | 2026-08-03 14:03:01 | 14:14:58 | 11m 57s | $0.16539 |
 | 2026-08-04 08:37:15 | 08:41:54 | 4m 39s | $0.06436 |
 | 2026-08-04 08:50:05 | 09:30:35 | 40m 30s | $0.56052 |
-| **Total** |  | **3h 02m 30s** | **$2.52581** |
+| 2026-08-04 12:02:44 | 12:08:39 | 5m 55s | $0.08189 |
+| **Total** |  | **3h 08m 25s** | **$2.60770** |
 
 The instance was stopped after the latest Arm validation session,
 so this compute charge is no longer increasing. Re-starting it costs about
@@ -50,7 +51,7 @@ US$0.096 per GB-month:
 - about **$0.01333/hour** (using a 30-day month for this estimate).
 
 From volume creation at 2026-08-02 12:17:29 until the latest stop request at
-2026-08-04 09:30:35, its pro-rated storage cost is about **$0.60291**. It
+2026-08-04 12:08:39, its pro-rated storage cost is about **$0.63804**. It
 continues to accrue at the
 rate above even though the instance is stopped. Do not delete the volume
 without first preserving or intentionally discarding its cached Arm64 images
@@ -65,12 +66,12 @@ bags, and the final frozen-route raw bags, model, reports, and checksums.
 Storage and request charges remain below one cent at this scale; same-region
 EC2-to-S3 transfers do not materially change this estimate.
 
-| Category | Estimated cost through 2026-08-04 09:30 AEST |
+| Category | Estimated cost through 2026-08-04 12:08 AEST |
 | --- | ---: |
-| EC2 compute | $2.52581 |
-| Pro-rated 100 GB gp3 EBS | ~$0.60291 |
+| EC2 compute | $2.60770 |
+| Pro-rated 100 GB gp3 EBS | ~$0.63804 |
 | S3 storage and requests | < $0.01 |
-| **Total before tax** | **about $3.14** |
+| **Total before tax** | **about $3.26** |
 
 Check Cost Explorer the following day for the settled invoice value. Keep the
 instance stopped whenever it is not actively benchmarking; the EBS volume is
