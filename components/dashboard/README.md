@@ -42,3 +42,18 @@ Foxglove currently requires a developer seat to author or import layouts. A
 basic seat can view a layout shared by a developer-seat user. Local Mac timing
 is for visual development only; latency overlays in submission footage must
 come from Arm Linux measurements.
+
+## Browser demo layer
+
+The repository also has a standalone browser visualisation for a polished demo
+without a Foxglove account or a running ROS graph:
+
+```bash
+./scripts/demo-visualisation.sh
+```
+
+Open <http://localhost:4173/demo/>. The page animates the six deterministic
+fault scenarios, surfaces their decision paths, and uses the measured held-out
+Arm figures from the V2 final report. It is intentionally labelled as a visual
+replay: it does not consume live ROS messages and must not be represented as a
+vehicle-safety, braking, or end-to-end-latency demonstration.

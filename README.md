@@ -133,6 +133,21 @@ The integrated stack includes Foxglove Bridge at `ws://localhost:8765`; see
 Use `./scripts/openadkit.sh dashboard-start` for a lightweight, continuously
 animated dashboard on the Mac.
 
+## Browser demo visualisation
+
+For a polished, dependency-free demo layer that does not require Foxglove or a
+running ROS stack, run:
+
+```bash
+./scripts/demo-visualisation.sh
+```
+
+Then open <http://localhost:4173/demo/>. It animates each deterministic fault
+and explains its first detection path while displaying the frozen held-out Arm
+results. The animation is explicitly a visual replay aid—not a live safety
+display or new benchmark. See [`demo/`](demo/) and the
+[`V2 final Arm report`](reports/v2-final-arm-route-validation.md).
+
 An overnight clean-data collection can run independently with:
 
 ```bash
