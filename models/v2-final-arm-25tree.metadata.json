@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "model_type": "isolation_forest",
+  "feature_names": [
+    "object_count",
+    "car_count",
+    "pedestrian_count",
+    "unknown_count",
+    "mean_existence_probability",
+    "min_existence_probability",
+    "mean_classification_probability",
+    "min_classification_probability",
+    "mean_object_distance_m",
+    "min_object_distance_m",
+    "mean_object_displacement_m",
+    "max_object_displacement_m",
+    "mean_relative_object_displacement_m",
+    "max_relative_object_displacement_m",
+    "unmatched_previous_object_count",
+    "unexpected_object_drop_count",
+    "object_count_delta",
+    "centroid_shift_m",
+    "detection_age_ms",
+    "source_age_ms",
+    "detection_gap_ms",
+    "trajectory_point_count",
+    "trajectory_length_m",
+    "trajectory_direct_distance_m",
+    "trajectory_mean_speed_mps",
+    "trajectory_speed_std_mps",
+    "trajectory_max_acceleration_mps2",
+    "trajectory_mean_heading_change_rad",
+    "trajectory_max_heading_change_rad",
+    "trajectory_mean_curvature"
+  ],
+  "training_datasets": [
+    "/home/ubuntu/second-sight-v2/data/processed/clean-features/openadkit-clean-north-approach-right-turn-pass-20260803T040858Z-features.csv",
+    "/home/ubuntu/second-sight-v2/data/processed/clean-features/openadkit-clean-north-approach-right-turn-pass-20260803T230757Z-features.csv",
+    "/home/ubuntu/second-sight-v2/data/processed/clean-features/openadkit-clean-north-approach-right-turn-pass-20260803T230917Z-features.csv"
+  ],
+  "skipped_datasets": [],
+  "training_rows": 25542,
+  "trees": 25,
+  "threshold_quantile": 0.99,
+  "min_rows_per_dataset": 300,
+  "threshold": 0.7207465158804607,
+  "training_seconds": 0.056115423000392184,
+  "training_score_min": 0.38592405428514853,
+  "training_score_max": 0.7285912560903783,
+  "guardrail_features": [
+    "mean_object_displacement_m",
+    "max_object_displacement_m",
+    "max_relative_object_displacement_m",
+    "unmatched_previous_object_count",
+    "unexpected_object_drop_count",
+    "object_count_delta",
+    "centroid_shift_m"
+  ],
+  "guardrails": {
+    "mean_object_displacement_m": {
+      "lower": 0.0,
+      "upper": 0.0,
+      "spread": 1e-06,
+      "tolerance": 1e-09,
+      "bound_quantile": 0.005
+    },
+    "max_object_displacement_m": {
+      "lower": 0.0,
+      "upper": 0.0,
+      "spread": 1e-06,
+      "tolerance": 1e-09,
+      "bound_quantile": 0.005
+    },
+    "max_relative_object_displacement_m": {
+      "lower": 0.0,
+      "upper": 0.0,
+      "spread": 1e-06,
+      "tolerance": 1e-09,
+      "bound_quantile": 0.02
+    },
+    "unmatched_previous_object_count": {
+      "lower": 0.0,
+      "upper": 0.0,
+      "spread": 1e-06,
+      "tolerance": 1e-09,
+      "bound_quantile": 0.005
+    },
+    "unexpected_object_drop_count": {
+      "lower": 0.0,
+      "upper": 0.0,
+      "spread": 1e-06,
+      "tolerance": 1e-09,
+      "bound_quantile": 0.02
+    },
+    "object_count_delta": {
+      "lower": 0.0,
+      "upper": 0.0,
+      "spread": 1e-06,
+      "tolerance": 1e-09,
+      "bound_quantile": 0.02
+    },
+    "centroid_shift_m": {
+      "lower": 0.0,
+      "upper": 0.0,
+      "spread": 1e-06,
+      "tolerance": 1e-09,
+      "bound_quantile": 0.005
+    }
+  },
+  "guardrail_threshold": 0.0,
+  "safety_monitors": {
+    "schema_version": 1,
+    "confidence_health": {
+      "mean_existence_floor": null,
+      "mean_classification_floor": 0.9999999999999999,
+      "consecutive_frames": 2
+    },
+    "source_freshness": {
+      "max_source_age_ms": 5.22682,
+      "consecutive_frames": 2
+    },
+    "perception_liveness": {
+      "timeout_ms": 300.0
+    },
+    "calibration": {
+      "branch_allocation": 0.0025,
+      "detection_frames": 1330,
+      "object_bearing_detection_frames": 1330,
+      "max_observed_detection_gap_ms": 105.137359,
+      "liveness_timeout_margin": 1.5,
+      "liveness_minimum_timeout_ms": 300.0
+    }
+  },
+  "calibration": {
+    "method": "validation_upper_tail_four_branch_budget",
+    "target_clean_fpr": 0.01,
+    "branch_allocation": 0.0025,
+    "validation_datasets": [
+      "/home/ubuntu/second-sight-v2/data/processed/clean-features/openadkit-clean-npc1-crossing-route-pass-20260803T225956Z-features.csv",
+      "/home/ubuntu/second-sight-v2/data/processed/clean-features/openadkit-clean-npc1-crossing-route-pass-20260803T231038Z-features.csv",
+      "/home/ubuntu/second-sight-v2/data/processed/clean-features/openadkit-clean-npc1-crossing-route-pass-20260803T231159Z-features.csv"
+    ],
+    "validation_rows": 24224,
+    "source_model": "/home/ubuntu/second-sight-v2/models/v2-final-arm-route-validation-20260805-uncalibrated-25tree.joblib",
+    "source_model_sha256": "cda4699929cd619c1004cc8acd896fc30d599efd3645f772ba4efacb5e793619",
+    "forest_threshold_before": 0.7039619646900558,
+    "forest_threshold_after": 0.7207465158804607,
+    "guardrail_threshold_before": 0.0,
+    "guardrail_threshold_after": 0.0,
+    "observed_hybrid_false_positive_rate": 0.002022787318361955,
+    "observed_hybrid_false_positive_ticks": 49,
+    "monitor_calibration_source": "direct_detection_streams",
+    "monitor_calibration_datasets": [
+      "/home/ubuntu/second-sight-v2/data/processed/clean-streams/openadkit-clean-npc1-crossing-route-pass-20260803T225956Z.jsonl",
+      "/home/ubuntu/second-sight-v2/data/processed/clean-streams/openadkit-clean-npc1-crossing-route-pass-20260803T231038Z.jsonl",
+      "/home/ubuntu/second-sight-v2/data/processed/clean-streams/openadkit-clean-npc1-crossing-route-pass-20260803T231159Z.jsonl"
+    ],
+    "monitor_false_positive_rate": 0.0,
+    "monitor_false_positive_frames": 0,
+    "observed_validation_false_positive_rate": 0.002022787318361955,
+    "observed_validation_false_positive_ticks": 49
+  }
+}

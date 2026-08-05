@@ -135,18 +135,27 @@ animated dashboard on the Mac.
 
 ## Browser demo visualisation
 
-For a polished, dependency-free demo layer that does not require Foxglove or a
-running ROS stack, run:
+For the interactive browser layer, run:
 
 ```bash
 ./scripts/demo-visualisation.sh
 ```
 
-Then open <http://localhost:4173/demo/>. It animates each deterministic fault
-and explains its first detection path while displaying the frozen held-out Arm
-results. The animation is explicitly a visual replay aid—not a live safety
-display or new benchmark. See [`demo/`](demo/) and the
-[`V2 final Arm report`](reports/v2-final-arm-route-validation.md).
+Then open <http://localhost:4173/demo/>. Without a local stack it is a clearly
+labelled visual walkthrough. For a real-model interaction, start the lightweight
+ROS 2 stack first:
+
+```bash
+./scripts/openadkit.sh dashboard-start
+./scripts/demo-visualisation.sh
+```
+
+In live mode the page connects to Foxglove Bridge, sends the selected fault to
+the real middleware injector, and renders Second Sight's actual fault,
+decision, anomaly, and dry-run-stop telemetry. The road animation is still an
+illustration—not a rendered Autoware sensor view—and local Mac timings are not
+benchmark claims. See [`components/dashboard/README.md`](components/dashboard/README.md)
+and the [`V2 final Arm report`](reports/v2-final-arm-route-validation.md).
 
 An overnight clean-data collection can run independently with:
 

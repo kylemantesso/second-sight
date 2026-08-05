@@ -110,10 +110,13 @@ const elements = {
   sceneTitle: document.querySelector("#scene-title"),
   sceneOverlay: document.querySelector("#scene-overlay"),
   injectButton: document.querySelector("#inject-button"),
+  liveBadge: document.querySelector("#live-badge"),
+  controlMode: document.querySelector("#control-mode"),
   replayStatus: document.querySelector("#replay-status"),
   statusDot: document.querySelector("#status-dot"),
   mode: document.querySelector("#mode-pill"),
   signal: document.querySelector("#signal-value"),
+  signalDetail: document.querySelector("#signal-detail"),
   path: document.querySelector("#decision-path"),
   pulseBars: document.querySelector("#pulse-bars"),
   pulseMarker: document.querySelector("#pulse-marker"),
@@ -128,13 +131,38 @@ const elements = {
   serviceBadge: document.querySelector("#service-badge"),
 };
 
-let selected = "vanish";
+// Confidence collapse is the clearest first live demonstration: it exercises
+// the frozen V2 confidence-health path directly on the incoming ROS stream.
+let selected = "confidence";
 let frame = 0;
 let visualStartedAt = performance.now();
 let injectionStartedAt = null;
 let alertStartedAt = null;
 const injectionDuration = 3300;
 const alertHoldDuration = 2400;
+const decoder = new TextDecoder();
+const encoder = new TextEncoder();
+const live = {
+  connected: false,
+  controlReady: false,
+  socket: null,
+  channels: new Map(),
+  subscriptionTopics: new Map(),
+  subscriptionsSent: false,
+  phase: 0,
+  path: null,
+  detail: "",
+};
+
+const liveTopics = {
+  "/second_sight/status": "string",
+  "/second_sight/anomaly": "bool",
+  "/second_sight/anomaly_score": "float64",
+  "/second_sight/fault/event": "string",
+  "/second_sight/fault/active": "bool",
+  "/second_sight/latency/decision": "string",
+  "/second_sight/safe_stop_requested": "bool",
+};
 
 for (let index = 0; index < 42; index += 1) {
   const bar = document.createElement("span");
@@ -182,7 +210,7 @@ function updateScenarioCopy() {
 }
 
 function selectScenario(key) {
-  if (injectionStartedAt !== null || alertStartedAt !== null) return;
+  if (injectionStartedAt !== null || alertStartedAt !== null || live.phase !== 0) return;
   selected = key;
   updateScenarioCopy();
   renderTabs();
@@ -216,24 +244,38 @@ function renderPulse(progress, phase) {
 }
 
 function renderState(signalProgress, requestedPhase, frameNumber) {
-  const phase = requestedPhase === 3 && !scenarios[selected].hasServiceEvidence ? 2 : requestedPhase;
+  const phase = live.connected
+    ? requestedPhase
+    : requestedPhase === 3 && !scenarios[selected].hasServiceEvidence
+      ? 2
+      : requestedPhase;
   const labels = ["Normal stream", "Fault injected", "Anomaly detected", "Safe-stop request"];
   const sceneStates = ["clean", "fault", "detected", "detected"];
   elements.scene.dataset.state = sceneStates[phase];
   elements.scene.dataset.running = "true";
   elements.sceneOverlay.textContent = phase === 0 ? "NORMAL PERCEPTION" : labels[phase].toUpperCase();
-  const status = [
+  const visualStatus = [
     "Monitoring normal perception",
     `Injecting ${scenarios[selected].label.toLowerCase()} fault`,
     `Anomaly detected via ${scenarios[selected].path.toLowerCase()}`,
     "Safe-stop request issued",
   ][phase];
-  elements.replayStatus.textContent = status;
+  const liveStatus = [
+    "Live model processing normal perception",
+    `Live injector applying ${scenarios[selected].label.toLowerCase()} fault`,
+    "Live model emitted an anomaly decision",
+    "Live model issued a dry-run safe-stop request",
+  ][phase];
+  elements.replayStatus.textContent = live.connected ? liveStatus : visualStatus;
   elements.statusDot.className = `status-dot${phase === 1 ? " warning" : phase >= 2 ? " danger" : ""}`;
   elements.mode.textContent = phase >= 2 ? "ANOMALY" : "MONITORING";
   elements.mode.classList.toggle("detected", phase >= 2);
   elements.signal.textContent = phase >= 2 ? "ANOMALY" : "NORMAL";
   elements.signal.style.color = phase >= 2 ? "var(--danger)" : "var(--lime)";
+  elements.path.textContent = live.connected && live.path ? live.path : scenarios[selected].path;
+  elements.signalDetail.textContent = live.connected
+    ? live.detail || "Live ROS 2 model stream connected"
+    : "Visual fallback · model connection unavailable";
   elements.sceneFrame.textContent = `FRAME ${String(frameNumber % 1000).padStart(3, "0")}`;
   setTimeline(phase);
   renderPulse(signalProgress, phase);
@@ -245,7 +287,10 @@ function tick(now) {
   let phase = 0;
   let signalProgress = idleSignal;
 
-  if (injectionStartedAt !== null) {
+  if (live.connected) {
+    phase = live.phase;
+    signalProgress = phase === 0 ? idleSignal : 0.5 + phase * 0.12;
+  } else if (injectionStartedAt !== null) {
     const progress = Math.min((now - injectionStartedAt) / injectionDuration, 1);
     phase = replayPhase(progress);
     signalProgress = progress;
@@ -263,12 +308,19 @@ function tick(now) {
     }
   }
 
-  elements.injectButton.disabled = injectionStartedAt !== null || alertStartedAt !== null;
+  elements.injectButton.disabled = live.connected
+    ? !live.controlReady || live.phase !== 0
+    : injectionStartedAt !== null || alertStartedAt !== null;
   renderState(signalProgress, phase, frameNumber);
   frame = requestAnimationFrame(tick);
 }
 
 function injectFault() {
+  if (live.connected) {
+    if (!live.controlReady || live.phase !== 0) return;
+    publishLiveFault();
+    return;
+  }
   if (injectionStartedAt !== null || alertStartedAt !== null) return;
   injectionStartedAt = performance.now();
   elements.injectButton.disabled = true;
@@ -276,6 +328,221 @@ function injectFault() {
 
 elements.injectButton.addEventListener("click", injectFault);
 
+function faultKey(faultType) {
+  return {
+    confidence_collapse: "confidence",
+    liveness: "hang",
+  }[faultType] || faultType;
+}
+
+function faultType(key) {
+  return {
+    confidence: "confidence_collapse",
+    hang: "liveness",
+  }[key] || key;
+}
+
+function readablePath(path) {
+  return {
+    trajectory_hybrid: "Trajectory hybrid",
+    confidence_health: "Confidence health",
+    source_freshness: "Source freshness",
+    perception_liveness_timeout: "Liveness timeout",
+    perception_guardrails: "Perception guardrails",
+  }[path] || path.replaceAll("_", " ");
+}
+
+function setLiveConnection(connected) {
+  live.connected = connected;
+  live.controlReady = false;
+  elements.liveBadge.textContent = connected ? "LIVE MODEL CONNECTED" : "LIVE MODEL OFFLINE";
+  elements.liveBadge.classList.toggle("connected", connected);
+  elements.controlMode.textContent = connected
+    ? "Live V2 mode: this button sends a command through Foxglove Bridge to the ROS 2 fault injector. The model, decision path, and dry-run safe-stop request below are live telemetry."
+    : "Visual fallback: this button triggers the browser demonstration. Start the live stack to send commands to the ROS 2 fault injector and score the real loaded model.";
+}
+
+function parseCdrString(data) {
+  const view = new DataView(data);
+  const offset = 17;
+  if (data.byteLength < offset + 4) return null;
+  const length = view.getUint32(offset, true);
+  if (length === 0 || data.byteLength < offset + 4 + length) return "";
+  return decoder.decode(new Uint8Array(data, offset + 4, length - 1));
+}
+
+function parseCdrBool(data) {
+  return new DataView(data).getUint8(17) !== 0;
+}
+
+function parseCdrFloat64(data) {
+  return new DataView(data).getFloat64(17, true);
+}
+
+function handleLiveMessage(topic, data) {
+  if (topic === "/second_sight/status") {
+    const payloadText = parseCdrString(data);
+    if (payloadText === null) return;
+    try {
+      const status = JSON.parse(payloadText);
+      if (typeof status.forest_score === "number") {
+        live.detail = `Live model score ${status.forest_score.toFixed(4)}`;
+      }
+      if (status.anomalous === true) live.phase = Math.max(live.phase, 2);
+    } catch {
+      live.detail = "Live model status received";
+    }
+    return;
+  }
+  if (topic === "/second_sight/anomaly_score") {
+    live.detail = `Live model score ${parseCdrFloat64(data).toFixed(4)}`;
+    return;
+  }
+  if (topic === "/second_sight/fault/event") {
+    const payloadText = parseCdrString(data);
+    if (payloadText === null) return;
+    try {
+      const fault = JSON.parse(payloadText);
+      const nextSelected = faultKey(fault.fault_types?.[0]);
+      if (scenarios[nextSelected]) {
+        selected = nextSelected;
+        updateScenarioCopy();
+        renderTabs();
+      }
+      live.phase = 1;
+      live.detail = "Live fault injector confirmed corrupted stream";
+    } catch {
+      live.phase = 1;
+    }
+    return;
+  }
+  if (topic === "/second_sight/latency/decision") {
+    const payloadText = parseCdrString(data);
+    if (payloadText === null) return;
+    try {
+      const decision = JSON.parse(payloadText);
+      if (decision.anomalous === true) {
+        live.phase = Math.max(live.phase, 2);
+        live.path = readablePath(String(decision.path));
+        live.detail = `Live decision · ${live.path}`;
+      }
+    } catch {
+      // Ignore malformed visual telemetry; the model continues independently.
+    }
+    return;
+  }
+  if (topic === "/second_sight/safe_stop_requested") {
+    if (parseCdrBool(data)) {
+      live.phase = 3;
+      live.detail = "Live model requested a dry-run safe stop";
+    } else {
+      live.phase = 0;
+      live.path = null;
+    }
+  }
+}
+
+function subscribeToLiveTopics() {
+  if (live.subscriptionsSent || live.socket?.readyState !== WebSocket.OPEN) return;
+  const subscriptions = [];
+  let id = 1;
+  for (const [topic, kind] of Object.entries(liveTopics)) {
+    const channel = live.channels.get(topic);
+    if (!channel) return;
+    subscriptions.push({ id, channelId: channel.id });
+    live.subscriptionTopics.set(id, { topic, kind });
+    id += 1;
+  }
+  live.socket.send(JSON.stringify({ op: "subscribe", subscriptions }));
+  live.subscriptionsSent = true;
+}
+
+function advertiseLiveControl() {
+  if (live.socket?.readyState !== WebSocket.OPEN) return;
+  live.socket.send(
+    JSON.stringify({
+      op: "advertise",
+      channels: [
+        {
+          id: 100,
+          topic: "/second_sight/dashboard/inject_fault",
+          encoding: "cdr",
+          schemaName: "std_msgs/msg/String",
+          schemaEncoding: "ros2msg",
+          schema: "string data",
+        },
+      ],
+    }),
+  );
+}
+
+function publishLiveFault() {
+  const command = JSON.stringify({ fault_type: faultType(selected), duration_ms: 900 });
+  const text = encoder.encode(command);
+  const cdr = new Uint8Array(8 + text.length + 1);
+  const cdrView = new DataView(cdr.buffer);
+  cdr.set([0, 1, 0, 0], 0);
+  cdrView.setUint32(4, text.length + 1, true);
+  cdr.set(text, 8);
+  const frame = new Uint8Array(5 + cdr.length);
+  const frameView = new DataView(frame.buffer);
+  frame[0] = 1;
+  frameView.setUint32(1, 100, true);
+  frame.set(cdr, 5);
+  live.socket.send(frame);
+  live.detail = `Live command sent · injecting ${scenarios[selected].label.toLowerCase()}`;
+  elements.injectButton.disabled = true;
+}
+
+function connectLiveModel() {
+  const socket = new WebSocket("ws://localhost:8765", "foxglove.sdk.v1");
+  socket.binaryType = "arraybuffer";
+  live.socket = socket;
+  socket.onopen = () => {
+    setLiveConnection(true);
+    advertiseLiveControl();
+  };
+  socket.onmessage = (event) => {
+    if (typeof event.data === "string") {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.op === "advertise") {
+          for (const channel of message.channels) live.channels.set(channel.topic, channel);
+          subscribeToLiveTopics();
+          if (live.subscriptionsSent && !live.controlReady) {
+            // Give Foxglove Bridge a brief turn to register the client publisher
+            // before exposing the dashboard's real injector control.
+            window.setTimeout(() => {
+              if (live.socket === socket && socket.readyState === WebSocket.OPEN) {
+                live.controlReady = true;
+              }
+            }, 150);
+          }
+        }
+      } catch {
+        // Ignore non-protocol text frames.
+      }
+      return;
+    }
+    const view = new DataView(event.data);
+    if (view.getUint8(0) !== 1) return;
+    const subscription = live.subscriptionTopics.get(view.getUint32(1, true));
+    if (subscription) handleLiveMessage(subscription.topic, event.data);
+  };
+  socket.onclose = () => {
+    live.channels.clear();
+    live.subscriptionTopics.clear();
+    live.subscriptionsSent = false;
+    live.phase = 0;
+    live.path = null;
+    live.detail = "";
+    setLiveConnection(false);
+    window.setTimeout(connectLiveModel, 3000);
+  };
+  socket.onerror = () => socket.close();
+}
+
 updateScenarioCopy();
 renderTabs();
 frame = requestAnimationFrame(tick);
+connectLiveModel();

@@ -15,7 +15,10 @@
           <span>SECOND SIGHT</span>
         </a>
         <p class="eyebrow">Independent perception watchdog · simulator research prototype</p>
-        <span class="arm-badge">Measured on Arm64 / Graviton</span>
+        <div class="header-badges">
+          <span class="live-badge" id="live-badge">LIVE MODEL OFFLINE</span>
+          <span class="arm-badge">Measured on Arm64 / Graviton</span>
+        </div>
       </header>
 
       <section class="hero" id="top">
@@ -103,8 +106,9 @@
             </div>
           </div>
           <p class="inject-note">
-            <span aria-hidden="true">●</span> The visual driver runs continuously. Injecting a
-            fault triggers this browser demonstration, not the live ROS 2 fault-injector node.
+            <span aria-hidden="true">●</span> <span id="control-mode">Visual fallback: this
+            button triggers the browser demonstration. Start the live stack to send commands to
+            the ROS 2 fault injector and score the real loaded model.</span>
           </p>
         </article>
 
@@ -121,6 +125,7 @@
             <div>
               <span>Anomaly signal</span>
               <strong id="signal-value">NORMAL</strong>
+              <small id="signal-detail">Visual fallback · model connection unavailable</small>
             </div>
             <div class="score-display">
               <span>First decision path</span>

@@ -33,10 +33,11 @@ than the resource-heavy full simulator:
 ./scripts/openadkit.sh dashboard-stop
 ```
 
-The demo continuously replays the clean recording through the real live fault
-injector and Second Sight. Each approximately 38-second cycle applies all six
-faults, then resets and repeats. Use `integrated-start` only when you also need
-the full Open AD Kit simulator and RViz visualization.
+The demo replays a clean final-route fixture through the real ROS 2 fault
+injector and the immutable V2 model. It starts clean, loops continuously, and
+waits for a command on `/second_sight/dashboard/inject_fault`; it does not
+auto-inject faults. Use `integrated-start` only when you also need the full
+Open AD Kit simulator and RViz visualization.
 
 Foxglove currently requires a developer seat to author or import layouts. A
 basic seat can view a layout shared by a developer-seat user. Local Mac timing
@@ -45,15 +46,32 @@ come from Arm Linux measurements.
 
 ## Browser demo layer
 
-The repository also has a standalone browser visualisation for a polished demo
-without a Foxglove account or a running ROS graph:
+The repository also has a browser visualisation that can run in either visual
+fallback or live-model mode:
 
 ```bash
 ./scripts/demo-visualisation.sh
 ```
 
-Open <http://localhost:4173/demo/>. The page animates the six deterministic
-fault scenarios, surfaces their decision paths, and uses the measured held-out
-Arm figures from the V2 final report. It is intentionally labelled as a visual
-replay: it does not consume live ROS messages and must not be represented as a
-vehicle-safety, braking, or end-to-end-latency demonstration.
+Open <http://localhost:4173/demo/>. When `dashboard-start` is running, the
+page connects to Foxglove Bridge at `ws://localhost:8765` and shows **LIVE MODEL
+CONNECTED**. The Inject button then publishes a command to the real ROS 2 fault
+injector; the confirmation, decision path, anomaly score, and dry-run
+safe-stop state are consumed from real Second Sight topics. The moving road
+scene is deliberately labelled **VISUAL DRIVER**: it illustrates the
+perception failure but is not a rendered Autoware view.
+
+If the live stack is unavailable, the same page falls back to a clearly labelled
+browser-only visual walkthrough. It retains the held-out Arm result cards but
+does not claim live scoring in that mode.
+
+Live mode runs the frozen V2 model bundle used by the final Arm validation. The
+local replay is for interaction and video composition only: Mac timing, the
+animated road, and the dry-run stop request are not Arm performance evidence,
+physical braking, or certification. Cite the final Arm report for all measured
+claims. The local compose configuration disables only the V2
+`source_freshness` monitor: its frozen 5.227 ms threshold is valid for the
+native Arm measurement pipeline but is below the scheduling jitter of a Mac
+Docker replay. The learned hybrid model plus confidence-health and liveness
+paths still run live. This local compatibility setting is not used for any
+reported result.

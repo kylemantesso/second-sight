@@ -15,18 +15,25 @@ services:
       python3 /opt/second-sight/fault_injector_node.py
       --scenario /scenario.yaml
       --reset-gap-seconds 2
+      --manual-control
+      --manual-duration-ms 900
 
   second-sight:
     image: second-sight-node:dev
     init: true
     environment: *ros-environment
     volumes:
-      - ${SECOND_SIGHT_ROOT}/models/hybrid-overnight.joblib:/model.joblib:ro
+      # This is the immutable V2 bundle used for the final Arm validation.
+      # The local replay remains a Mac development/demo environment; it is not
+      # a substitute for the separately recorded Arm performance evidence.
+      - ${SECOND_SIGHT_ROOT}/models/v2-final-arm-25tree.joblib:/model.joblib:ro
+      - ${SECOND_SIGHT_ROOT}/models/v2-final-arm-25tree.metadata.json:/model.metadata.json:ro
     command: >-
       python3 /opt/second-sight/second_sight_node.py
       --model /model.joblib
       --mode hybrid
       --reset-gap-seconds 2
+      --disable-source-freshness
     depends_on:
       - fault-injector
 
@@ -36,13 +43,13 @@ services:
     environment: *ros-environment
     volumes:
       - ${SECOND_SIGHT_ROOT}:/workspace:ro
-      - ${SECOND_SIGHT_ROOT}/data/processed/openadkit-clean-20260716T112843Z.jsonl:/clean.jsonl:ro
+      - ${SECOND_SIGHT_ROOT}/data/fixtures/dashboard-v2-final.jsonl:/clean.jsonl:ro
     command: >-
       python3 /workspace/components/fault_injector/replay_node.py
       /clean.jsonl
       --detection-topic /second_sight/perception/raw
       --loop
-      --loop-delay 3
+      --loop-delay 0
     depends_on:
       - second-sight
 

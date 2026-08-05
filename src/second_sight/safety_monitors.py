@@ -120,12 +120,15 @@ class ConsecutiveCondition:
 class DetectionSafetyMonitors:
     """Stateful confidence and source-freshness checks for detection frames."""
 
-    def __init__(self, config: dict[str, Any] | None) -> None:
+    def __init__(
+        self, config: dict[str, Any] | None, *, enable_source_freshness: bool = True
+    ) -> None:
         self.config = config
         self.confidence: ConfidenceHealthConfig | None = None
         self.freshness: SourceFreshnessConfig | None = None
         self.confidence_condition: ConsecutiveCondition | None = None
         self.freshness_condition: ConsecutiveCondition | None = None
+        self.enable_source_freshness = enable_source_freshness
         if config is not None:
             self.confidence = ConfidenceHealthConfig.from_dict(config["confidence_health"])
             self.freshness = SourceFreshnessConfig.from_dict(config["source_freshness"])
@@ -141,9 +144,7 @@ class DetectionSafetyMonitors:
         if not self.enabled:
             return []
         assert self.confidence is not None
-        assert self.freshness is not None
         assert self.confidence_condition is not None
-        assert self.freshness_condition is not None
 
         object_bearing = float(row["object_count"]) > 0
         confidence_checks = []
@@ -160,9 +161,7 @@ class DetectionSafetyMonitors:
         low_confidence = object_bearing and bool(confidence_checks) and all(confidence_checks)
         confidence_anomalous, confidence_count = self.confidence_condition.observe(low_confidence)
 
-        stale = float(row["source_age_ms"]) > self.freshness.max_source_age_ms
-        freshness_anomalous, freshness_count = self.freshness_condition.observe(stale)
-        return [
+        results = [
             {
                 "path": "confidence_health",
                 "anomalous": confidence_anomalous,
@@ -172,11 +171,19 @@ class DetectionSafetyMonitors:
                 "mean_classification_probability": float(
                     row["mean_classification_probability"]
                 ),
-            },
-            {
-                "path": "source_freshness",
-                "anomalous": freshness_anomalous,
-                "consecutive_anomalies": freshness_count,
-                "source_age_ms": float(row["source_age_ms"]),
-            },
+            }
         ]
+        if self.enable_source_freshness:
+            assert self.freshness is not None
+            assert self.freshness_condition is not None
+            stale = float(row["source_age_ms"]) > self.freshness.max_source_age_ms
+            freshness_anomalous, freshness_count = self.freshness_condition.observe(stale)
+            results.append(
+                {
+                    "path": "source_freshness",
+                    "anomalous": freshness_anomalous,
+                    "consecutive_anomalies": freshness_count,
+                    "source_age_ms": float(row["source_age_ms"]),
+                }
+            )
+        return results

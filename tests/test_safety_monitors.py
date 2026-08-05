@@ -54,5 +54,13 @@ def test_source_freshness_requires_two_stale_frames() -> None:
     assert fresh[1]["consecutive_anomalies"] == 0
 
 
+def test_source_freshness_can_be_disabled_for_timing_incompatible_replay() -> None:
+    monitors = DetectionSafetyMonitors(config(), enable_source_freshness=False)
+
+    results = monitors.observe(row(source_age_ms=10_000.0))
+
+    assert [result["path"] for result in results] == ["confidence_health"]
+
+
 def test_metadata_validation_accepts_v2_monitor_config() -> None:
     assert monitor_config_from_metadata({"safety_monitors": config()}) == config()

@@ -111,6 +111,7 @@ class SecondSightNode(Node):
         enable_perception_liveness: bool,
         liveness_timeout_ms: float | None,
         enable_safety_monitors: bool,
+        enable_source_freshness: bool,
     ) -> None:
         super().__init__("second_sight")
         self.extractor = FeatureExtractor()
@@ -129,7 +130,9 @@ class SecondSightNode(Node):
         self.safety_monitor_config = (
             self.scorer.safety_monitor_config if enable_safety_monitors else None
         )
-        self.safety_monitors = DetectionSafetyMonitors(self.safety_monitor_config)
+        self.safety_monitors = DetectionSafetyMonitors(
+            self.safety_monitor_config, enable_source_freshness=enable_source_freshness
+        )
         self.monitor_extractor = FeatureExtractor() if self.safety_monitors.enabled else None
         self.enable_safe_stop = enable_safe_stop
         self.stop_after = stop_after
@@ -190,6 +193,7 @@ class SecondSightNode(Node):
             f"mode={mode}, fast_path={'enabled' if enable_perception_fast_path else 'disabled'}, "
             f"liveness={'enabled' if self.liveness is not None else 'disabled'}, "
             f"safety_monitors={'enabled' if self.safety_monitors.enabled else 'disabled'}, "
+            f"source_freshness={'enabled' if enable_source_freshness else 'disabled'}, "
             f"safe_stop={'enabled' if enable_safe_stop else 'dry-run'}"
         )
 
@@ -463,6 +467,11 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         action="store_true",
         help="disable the frozen model's confidence, freshness, and liveness paths",
     )
+    parser.add_argument(
+        "--disable-source-freshness",
+        action="store_true",
+        help="disable only the source-timestamp monitor for a timing-incompatible replay",
+    )
     parser.add_argument("--reset-gap-seconds", type=float, default=0.0)
     args, ros_args = parser.parse_known_args()
     if args.stop_after <= 0:
@@ -490,6 +499,7 @@ def main() -> None:
         args.enable_perception_liveness,
         args.liveness_timeout_ms,
         not args.disable_safety_monitors,
+        not args.disable_source_freshness,
     )
     try:
         rclpy.spin(node)
