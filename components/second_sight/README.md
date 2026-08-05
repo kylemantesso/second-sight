@@ -50,11 +50,21 @@ SECOND_SIGHT_NODE_ARGS="--enable-perception-fast-path" \
   configs/scenarios/latency/phantom.yaml
 ```
 
-`--enable-perception-liveness` is a separate opt-in watchdog timer. It arms
-only after the first detection message, then requests a stop if no later
-detection arrives within `--liveness-timeout-ms` (300 ms by default). It is
-intended for the `liveness` fault and needs its own clean-stream and Arm
-validation.
+## V2 direct-perception safety monitors
+
+A frozen v2 model enables three calibrated safety paths by default:
+
+- `confidence_health`: two consecutive object-bearing frames below both clean
+  confidence floors;
+- `source_freshness`: two consecutive stale source-timestamp frames; and
+- `perception_liveness_timeout`: no detection arrives before the frozen clean
+  cadence timeout.
+
+The model metadata provides the thresholds and liveness timeout. Pass
+`--disable-safety-monitors` only for an explicitly scoped regression run.
+`--enable-perception-liveness` remains compatible with v1 models, and
+`--liveness-timeout-ms` overrides the frozen timeout for an experiment; neither
+override is suitable for a final measured claim without revalidation.
 
 ## Container
 

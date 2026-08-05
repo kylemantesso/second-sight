@@ -167,6 +167,15 @@ alongside each live Arm run to retain the raw watchdog CPU and memory samples.
 The measured AWS development-cost ledger and ongoing storage cost are in
 [`docs/aws-costs.md`](docs/aws-costs.md).
 
+## V2 safety-monitor work
+
+The next version preserves the measured v1 25-tree hybrid and adds calibrated,
+direct-perception checks for stream liveness, collapsed confidence, and stale
+source frames. This is not yet a new benchmark claim: v2 requires a fresh
+native-Arm final cohort on `straight-through-intersection`, then frozen-model
+evaluation and repeat integrated service-response trials. The executable
+protocol and cost guardrail are in [`docs/v2-validation.md`](docs/v2-validation.md).
+
 ## License
 
 [MIT](LICENSE)

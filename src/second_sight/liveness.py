@@ -24,3 +24,9 @@ class DetectionLiveness:
             return False
         self.reported = True
         return True
+
+    def timeout_at_ns(self) -> int | None:
+        """Return the deadline for the currently armed timeout."""
+        if self.last_detection_ns is None:
+            return None
+        return self.last_detection_ns + self.timeout_ns

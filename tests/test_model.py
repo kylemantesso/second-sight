@@ -1,7 +1,9 @@
+import json
 from pathlib import Path
 
 import numpy as np
 
+from second_sight.faults import FaultSpec, Scenario, inject_file
 from second_sight.features import FEATURE_NAMES, write_feature_csv
 from second_sight.model import (
     GUARDRAIL_FEATURES,
@@ -14,6 +16,49 @@ from second_sight.model import (
     select_guardrail_violations,
     train_model,
 )
+
+
+def event(kind: str, timestamp_ns: int) -> dict:
+    if kind == "detections":
+        return {
+            "schema_version": 1,
+            "kind": kind,
+            "timestamp_ns": timestamp_ns,
+            "recorded_ns": timestamp_ns,
+            "frame_id": "map",
+            "objects": [
+                {
+                    "existence_probability": 0.9,
+                    "classification": [{"label": 1, "probability": 0.8}],
+                    "position": {"x": 5.0, "y": 0.0, "z": 0.0},
+                }
+            ],
+        }
+    point = {
+        "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
+        "longitudinal_velocity_mps": 2.0,
+        "acceleration_mps2": 0.5,
+    }
+    return {
+        "schema_version": 1,
+        "kind": "trajectory",
+        "timestamp_ns": timestamp_ns,
+        "recorded_ns": timestamp_ns,
+        "frame_id": "map",
+        "points": [point, {**point, "position": {"x": 2.0, "y": 0.0, "z": 0.0}}],
+    }
+
+
+def write_stream(path: Path) -> None:
+    events = []
+    for tick in range(21):
+        timestamp_ns = tick * 50_000_000
+        events.append(event("trajectory", timestamp_ns))
+        if tick % 2 == 0:
+            events.append(event("detections", timestamp_ns))
+    events.sort(key=lambda item: (item["timestamp_ns"], item["kind"] == "trajectory"))
+    path.write_text("".join(json.dumps(item) + "\n" for item in events), encoding="utf-8")
 
 
 def test_guardrails_accept_clean_values_and_flag_safety_feature_violations() -> None:
@@ -120,3 +165,45 @@ def test_calibration_freezes_validation_only_hybrid_thresholds(tmp_path: Path) -
     assert calibration["validation_rows"] == 100
     assert calibration["target_clean_fpr"] == 0.1
     assert calibration["observed_validation_false_positive_rate"] <= 0.1
+
+
+def test_evaluation_reports_liveness_from_missing_detection_stream(tmp_path: Path) -> None:
+    from second_sight.features import extract_features
+    from second_sight.model import evaluate_model
+    from second_sight.stream import iter_events
+
+    clean_stream = tmp_path / "clean.jsonl"
+    write_stream(clean_stream)
+    features = tmp_path / "clean.csv"
+    write_feature_csv(features, extract_features(iter_events(clean_stream)))
+    source_model = tmp_path / "source.joblib"
+    frozen_model = tmp_path / "frozen.joblib"
+    train_model([features], source_model, trees=5)
+    metadata = calibrate_model(
+        source_model,
+        [features],
+        frozen_model,
+        monitor_streams=[clean_stream],
+    )
+    assert metadata["calibration"]["monitor_calibration_source"] == "direct_detection_streams"
+    assert metadata["safety_monitors"]["perception_liveness"]["timeout_ms"] == 300.0
+
+    scenario = Scenario(
+        name="liveness-test",
+        seed=2026,
+        faults=(FaultSpec("hang", "liveness", 0.3, 0.5),),
+    )
+    faulty_stream = tmp_path / "faulty.jsonl"
+    ground_truth = tmp_path / "truth.json"
+    inject_file(clean_stream, faulty_stream, ground_truth, scenario)
+    report = evaluate_model(
+        faulty_stream,
+        frozen_model,
+        ground_truth,
+        tmp_path / "report.json",
+        mode="hybrid",
+    )
+
+    fault = report["faults"][0]
+    assert fault["detected"]
+    assert "perception_liveness_timeout" in fault["decision_paths"]

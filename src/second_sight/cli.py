@@ -80,6 +80,12 @@ def build_parser() -> argparse.ArgumentParser:
     calibrate_parser.add_argument("--output", type=Path, required=True)
     calibrate_parser.add_argument("--target-clean-fpr", type=float, default=0.01)
     calibrate_parser.add_argument("--min-rows-per-dataset", type=int, default=1)
+    calibrate_parser.add_argument(
+        "--monitor-streams",
+        type=Path,
+        nargs="+",
+        help="clean event streams used to calibrate direct perception safety monitors",
+    )
     evaluate_parser = subcommands.add_parser("evaluate", help="evaluate a model on an event stream")
     evaluate_parser.add_argument("stream", type=Path)
     evaluate_parser.add_argument("--model", type=Path, required=True)
@@ -205,6 +211,7 @@ def main() -> int:
             args.output,
             target_clean_fpr=args.target_clean_fpr,
             min_rows_per_dataset=args.min_rows_per_dataset,
+            monitor_streams=args.monitor_streams,
         )
         calibration = metadata["calibration"]
         print(f"Model:       {args.output}")

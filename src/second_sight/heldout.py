@@ -93,6 +93,12 @@ def aggregate_heldout_evaluations(
                     "time_to_detect_ms": (
                         float(fault["time_to_detect_ms"]) if detected else None
                     ),
+                    "first_decision_path": (
+                        str(fault["first_decision_path"])
+                        if fault.get("first_decision_path") is not None
+                        else None
+                    ),
+                    "decision_paths": [str(path) for path in fault.get("decision_paths", [])],
                 }
             )
 
@@ -101,6 +107,13 @@ def aggregate_heldout_evaluations(
         evaluable = [run for run in runs if run["evaluable"]]
         detected = [run for run in evaluable if run["detected"]]
         timings = [float(run["time_to_detect_ms"]) for run in detected]
+        first_path_counts: dict[str, int] = defaultdict(int)
+        decision_path_counts: dict[str, int] = defaultdict(int)
+        for run in detected:
+            if run["first_decision_path"] is not None:
+                first_path_counts[str(run["first_decision_path"])] += 1
+            for path in run["decision_paths"]:
+                decision_path_counts[path] += 1
         faults.append(
             {
                 "id": fault_id,
@@ -111,6 +124,8 @@ def aggregate_heldout_evaluations(
                 "detected_runs": len(detected),
                 "detection_rate": len(detected) / len(evaluable) if evaluable else None,
                 "time_to_detect_ms": summary_statistics(timings) if timings else None,
+                "first_decision_path_counts": dict(sorted(first_path_counts.items())),
+                "decision_path_counts": dict(sorted(decision_path_counts.items())),
                 "source_reports": [run["evaluation_path"] for run in runs],
             }
         )

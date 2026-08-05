@@ -61,6 +61,27 @@ hybrid flags a tick when either detector fires. Reports include fault latency,
 triggering features, false-positive rate, and a documented 500 ms post-fault
 recovery exclusion.
 
+## V2 calibrated safety monitors
+
+V2 retains the 25-tree hybrid model and adds direct-perception monitors for
+confidence collapse, stale source timestamps, and missing detections. Calibrate
+them from clean validation event streams, not injected faults:
+
+```bash
+uv run second-sight calibrate validation-features/*.csv \
+  --model models/v2-uncalibrated.joblib \
+  --output models/v2-frozen.joblib \
+  --target-clean-fpr 0.01 \
+  --monitor-streams validation-streams/*.jsonl
+```
+
+The frozen metadata records lower confidence floors, a source-age limit, a
+two-consecutive-frame policy, and a liveness timeout based on the clean
+inter-message cadence. The evaluator simulates liveness from portable event
+timestamps and reports the actual first decision path per fault. Keep the
+train, validation, and final-route streams disjoint; fault injection is only
+for evaluation.
+
 ## Overnight Work
 
 Do not loop training on the same data overnight. Instead, collect clean bags

@@ -48,8 +48,9 @@ get_files() {
 
 mapfile -t train_features < <(get_files train "$feature_dir" .csv)
 mapfile -t validation_features < <(get_files validation "$feature_dir" .csv)
+mapfile -t validation_streams < <(get_files validation "$stream_dir" .jsonl)
 mapfile -t final_streams < <(get_files final_test "$stream_dir" .jsonl)
-if (( ${#train_features[@]} == 0 || ${#validation_features[@]} == 0 || ${#final_streams[@]} == 0 )); then
+if (( ${#train_features[@]} == 0 || ${#validation_features[@]} == 0 || ${#validation_streams[@]} == 0 || ${#final_streams[@]} == 0 )); then
   echo "Each frozen cohort needs exported streams and feature CSVs before final validation." >&2
   exit 1
 fi
@@ -59,7 +60,7 @@ uv run --project "$root_dir" second-sight train "${train_features[@]}" \
   --output "$unfrozen_model" --trees 25 --min-rows-per-dataset 300
 uv run --project "$root_dir" second-sight calibrate "${validation_features[@]}" \
   --model "$unfrozen_model" --output "$frozen_model" --target-clean-fpr 0.01 \
-  --min-rows-per-dataset 300
+  --min-rows-per-dataset 300 --monitor-streams "${validation_streams[@]}"
 
 clean_reports=()
 fault_reports=()

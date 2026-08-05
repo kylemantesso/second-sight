@@ -20,6 +20,7 @@ from tier4_control_msgs.srv import SetStop
 from second_sight.features import FeatureExtractor
 from second_sight.liveness import DetectionLiveness
 from second_sight.model import PERCEPTION_GUARDRAIL_FEATURES, SecondSightScorer
+from second_sight.safety_monitors import DetectionSafetyMonitors
 
 
 def vector(message: Any) -> dict[str, float]:
@@ -108,7 +109,8 @@ class SecondSightNode(Node):
         enable_perception_fast_path: bool,
         fast_stop_after: int,
         enable_perception_liveness: bool,
-        liveness_timeout_ms: float,
+        liveness_timeout_ms: float | None,
+        enable_safety_monitors: bool,
     ) -> None:
         super().__init__("second_sight")
         self.extractor = FeatureExtractor()
@@ -124,6 +126,11 @@ class SecondSightNode(Node):
             if enable_perception_fast_path
             else None
         )
+        self.safety_monitor_config = (
+            self.scorer.safety_monitor_config if enable_safety_monitors else None
+        )
+        self.safety_monitors = DetectionSafetyMonitors(self.safety_monitor_config)
+        self.monitor_extractor = FeatureExtractor() if self.safety_monitors.enabled else None
         self.enable_safe_stop = enable_safe_stop
         self.stop_after = stop_after
         self.consecutive_anomalies = 0
@@ -133,8 +140,17 @@ class SecondSightNode(Node):
         self.fast_was_anomalous = False
         self.enable_perception_fast_path = enable_perception_fast_path
         self.fast_stop_after = fast_stop_after
+        configured_timeout_ms = (
+            float(self.safety_monitor_config["perception_liveness"]["timeout_ms"])
+            if self.safety_monitor_config is not None
+            else None
+        )
+        active_timeout_ms = liveness_timeout_ms or configured_timeout_ms
         self.liveness = (
-            DetectionLiveness(liveness_timeout_ms) if enable_perception_liveness else None
+            DetectionLiveness(active_timeout_ms)
+            if active_timeout_ms is not None
+            and (enable_perception_liveness or self.safety_monitors.enabled)
+            else None
         )
         self.reset_gap_ns = round(reset_gap_seconds * 1_000_000_000)
         self.last_trajectory_ns: int | None = None
@@ -167,12 +183,13 @@ class SecondSightNode(Node):
         )
         self.stop_client = self.create_client(SetStop, "/control/vehicle_cmd_gate/set_stop")
         if self.liveness is not None:
-            timer_period_seconds = min(max(liveness_timeout_ms / 4_000, 0.01), 0.1)
+            timer_period_seconds = min(max(active_timeout_ms / 4_000, 0.01), 0.1)
             self.create_timer(timer_period_seconds, self.on_liveness_timer)
         self.get_logger().info(
             "Second Sight ready: "
             f"mode={mode}, fast_path={'enabled' if enable_perception_fast_path else 'disabled'}, "
             f"liveness={'enabled' if self.liveness is not None else 'disabled'}, "
+            f"safety_monitors={'enabled' if self.safety_monitors.enabled else 'disabled'}, "
             f"safe_stop={'enabled' if enable_safe_stop else 'dry-run'}"
         )
 
@@ -184,6 +201,9 @@ class SecondSightNode(Node):
         if self.liveness is not None:
             self.liveness.record_detection(time.monotonic_ns())
         self.extractor.process_event(event)
+        if self.monitor_extractor is not None:
+            monitor_row = self.monitor_extractor.process_detection_tick(event)
+            self.score_detection_safety_monitors(monitor_row)
         if self.fast_extractor is not None and self.fast_scorer is not None:
             row = self.fast_extractor.process_detection_tick(event)
             self.score_perception_guardrails(row)
@@ -223,6 +243,8 @@ class SecondSightNode(Node):
             self.was_anomalous = False
             self.get_logger().info("reset dry-run state after source-stream gap")
         self.last_trajectory_ns = now_ns
+        if self.monitor_extractor is not None:
+            self.monitor_extractor.update_trajectory_context(event)
         if self.fast_extractor is not None:
             self.fast_extractor.update_trajectory_context(event)
         row = self.extractor.process_event(event)
@@ -279,6 +301,47 @@ class SecondSightNode(Node):
         self.was_anomalous = anomalous
         if self.consecutive_anomalies >= self.stop_after:
             self.request_safe_stop()
+
+    def score_detection_safety_monitors(self, row: dict[str, float | int]) -> None:
+        """Run calibrated direct-perception monitors on every detection frame."""
+        for result in self.safety_monitors.observe(row):
+            decision_monotonic_ns = time.monotonic_ns()
+            anomalous = bool(result["anomalous"])
+            self.decision_publisher.publish(
+                String(
+                    data=json.dumps(
+                        {
+                            "schema_version": 1,
+                            "event": "anomaly_decision",
+                            "path": result["path"],
+                            "anomalous": anomalous,
+                            "monotonic_ns": decision_monotonic_ns,
+                            "consecutive_anomalies": result["consecutive_anomalies"],
+                        },
+                        separators=(",", ":"),
+                    )
+                )
+            )
+            if not anomalous:
+                continue
+            self.anomaly_publisher.publish(Bool(data=True))
+            self.status_publisher.publish(
+                String(
+                    data=json.dumps(
+                        {
+                            "anomalous": True,
+                            "path": result["path"],
+                            "consecutive_anomalies": result["consecutive_anomalies"],
+                        },
+                        separators=(",", ":"),
+                    )
+                )
+            )
+            self.get_logger().warning(
+                f"{result['path']} anomaly after "
+                f"{result['consecutive_anomalies']} consecutive detection frames"
+            )
+            self.request_safe_stop(str(result["path"]))
 
     def score_perception_guardrails(self, row: dict[str, float | int]) -> None:
         """Run the opt-in, perception-only guardrail path on every detection."""
@@ -390,14 +453,23 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument("--enable-perception-fast-path", action="store_true")
     parser.add_argument("--fast-stop-after", type=int, default=2)
     parser.add_argument("--enable-perception-liveness", action="store_true")
-    parser.add_argument("--liveness-timeout-ms", type=float, default=300.0)
+    parser.add_argument(
+        "--liveness-timeout-ms",
+        type=float,
+        help="override the frozen model's calibrated liveness timeout",
+    )
+    parser.add_argument(
+        "--disable-safety-monitors",
+        action="store_true",
+        help="disable the frozen model's confidence, freshness, and liveness paths",
+    )
     parser.add_argument("--reset-gap-seconds", type=float, default=0.0)
     args, ros_args = parser.parse_known_args()
     if args.stop_after <= 0:
         parser.error("--stop-after must be positive")
     if args.fast_stop_after <= 0:
         parser.error("--fast-stop-after must be positive")
-    if args.liveness_timeout_ms <= 0:
+    if args.liveness_timeout_ms is not None and args.liveness_timeout_ms <= 0:
         parser.error("--liveness-timeout-ms must be positive")
     if args.reset_gap_seconds < 0:
         parser.error("--reset-gap-seconds must be non-negative")
@@ -417,6 +489,7 @@ def main() -> None:
         args.fast_stop_after,
         args.enable_perception_liveness,
         args.liveness_timeout_ms,
+        not args.disable_safety_monitors,
     )
     try:
         rclpy.spin(node)

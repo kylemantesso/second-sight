@@ -1,0 +1,22 @@
+schema_version: 1
+name: v2-arm-route-split-UNFROZEN
+frozen: false
+purpose: >-
+  Template for Second Sight v2. Do not use this manifest for training or final
+  evaluation until straight-through-intersection has passed a native-Arm smoke
+  recording and the filename, timestamp, and route evidence below are filled
+  in and committed with frozen: true.
+collection_requirements:
+  platform: AWS Graviton c8g.4xlarge, ap-southeast-2
+  minimum_complete_ticks_per_recording: 300
+  clean_recordings_per_route: 3
+cohorts:
+  train:
+    route_ids:
+      - north-approach-right-turn
+  validation:
+    route_ids:
+      - npc1-crossing-route
+  final_test:
+    route_ids:
+      - straight-through-intersection

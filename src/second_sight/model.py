@@ -15,8 +15,15 @@ from sklearn.ensemble import IsolationForest
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from second_sight.features import FEATURE_NAMES, extract_features, read_feature_csv
-from second_sight.stream import iter_events
+from second_sight.features import FEATURE_NAMES, FeatureExtractor, read_feature_csv
+from second_sight.liveness import DetectionLiveness
+from second_sight.safety_monitors import (
+    ConfidenceHealthConfig,
+    DetectionSafetyMonitors,
+    SourceFreshnessConfig,
+    monitor_config_from_metadata,
+)
+from second_sight.stream import event_time_ns, iter_events
 
 EXPERIMENTAL_FEATURES = {
     "missing_near_object_count",
@@ -60,6 +67,10 @@ SENSITIVE_GUARDRAIL_FEATURES = {
     "max_relative_object_displacement_m",
     "unexpected_object_drop_count",
 }
+SAFETY_MONITOR_BRANCH_COUNT = 4
+SAFETY_MONITOR_CONSECUTIVE_FRAMES = 2
+LIVENESS_MIN_TIMEOUT_MS = 300.0
+LIVENESS_TIMEOUT_MARGIN = 1.5
 
 
 def learn_guardrails(matrix: np.ndarray) -> dict[str, dict[str, float]]:
@@ -169,6 +180,7 @@ class SecondSightScorer:
             [MODEL_FEATURE_NAMES.index(name) for name in guardrail_features], dtype=np.intp
         )
         metadata = self.bundle["metadata"]
+        self.safety_monitor_config = monitor_config_from_metadata(metadata)
         self.guardrail_lower = np.asarray(
             [metadata["guardrails"][name]["lower"] for name in guardrail_features],
             dtype=np.float64,
@@ -354,6 +366,126 @@ def calibration_matrix(
     return np.asarray(rows, dtype=np.float64), included
 
 
+def monitor_rows_from_streams(
+    streams: list[Path],
+) -> tuple[list[dict[str, float | int]], list[str]]:
+    """Extract one direct-perception row per detection frame from clean streams.
+
+    The hybrid model is trained on planning ticks, while deterministic safety
+    monitors act when a perception message arrives.  Calibrating those paths
+    from direct detection rows avoids counting one perception frame repeatedly
+    at the planner's higher rate.
+    """
+    from second_sight.features import FeatureExtractor
+
+    rows: list[dict[str, float | int]] = []
+    included: list[str] = []
+    for stream in streams:
+        extractor = FeatureExtractor()
+        stream_rows = []
+        for event in iter_events(stream):
+            if event["kind"] == "trajectory":
+                extractor.update_trajectory_context(event)
+            else:
+                stream_rows.append(extractor.process_detection_tick(event))
+        if stream_rows:
+            rows.extend(stream_rows)
+            included.append(str(stream))
+    if not rows:
+        raise ValueError("no detection frames found in monitor calibration streams")
+    return rows, included
+
+
+def monitor_rows_from_features(matrix: np.ndarray) -> list[dict[str, float]]:
+    """Compatibility fallback for older calibration invocations.
+
+    New final runs should pass monitor streams.  This fallback keeps the CLI
+    usable with existing feature-only experiments and marks that limitation in
+    frozen metadata.
+    """
+    return [
+        {name: float(row[index]) for index, name in enumerate(MODEL_FEATURE_NAMES)}
+        for row in matrix
+    ]
+
+
+def lower_tail_floor(values: np.ndarray, allocation: float) -> float:
+    """Pick a strict lower bound that cannot exceed its empirical allocation."""
+    selected = float(np.quantile(values, allocation, method="lower"))
+    return max(0.0, float(np.nextafter(selected, -np.inf)))
+
+
+def build_safety_monitor_config(
+    monitor_rows: list[dict[str, float | int]], *, branch_allocation: float
+) -> dict[str, Any]:
+    """Freeze direct-perception monitor thresholds from normal data only."""
+    if not monitor_rows:
+        raise ValueError("cannot calibrate safety monitors without detection rows")
+    object_rows = [row for row in monitor_rows if float(row["object_count"]) > 0]
+    if not object_rows:
+        raise ValueError("monitor calibration requires object-bearing detection frames")
+    existence = np.asarray(
+        [float(row["mean_existence_probability"]) for row in object_rows], dtype=np.float64
+    )
+    classification = np.asarray(
+        [float(row["mean_classification_probability"]) for row in object_rows], dtype=np.float64
+    )
+    source_age = np.asarray(
+        [float(row["source_age_ms"]) for row in monitor_rows], dtype=np.float64
+    )
+    gaps = np.asarray(
+        [
+            float(row["detection_gap_ms"])
+            for row in monitor_rows
+            if float(row["detection_gap_ms"]) > 0
+        ],
+        dtype=np.float64,
+    )
+    # Feature-only compatibility calibration cannot distinguish planner ticks
+    # from detection frames, so it may not retain an inter-message gap. New
+    # final runs pass direct streams; legacy callers get the conservative
+    # minimum timeout and are marked as such in calibration metadata.
+    observed_gap_ms = float(gaps.max()) if len(gaps) else None
+    timeout_ms = max(
+        LIVENESS_MIN_TIMEOUT_MS,
+        (observed_gap_ms or 0.0) * LIVENESS_TIMEOUT_MARGIN,
+    )
+    timeout_ms = float(np.ceil(timeout_ms / 10.0) * 10.0)
+    confidence = ConfidenceHealthConfig(
+        mean_existence_floor=lower_tail_floor(existence, branch_allocation),
+        mean_classification_floor=lower_tail_floor(classification, branch_allocation),
+        consecutive_frames=SAFETY_MONITOR_CONSECUTIVE_FRAMES,
+    )
+    freshness = SourceFreshnessConfig(
+        max_source_age_ms=upper_tail_threshold(source_age, branch_allocation, strict=False),
+        consecutive_frames=SAFETY_MONITOR_CONSECUTIVE_FRAMES,
+    )
+    return {
+        "schema_version": 1,
+        "confidence_health": confidence.as_dict(),
+        "source_freshness": freshness.as_dict(),
+        "perception_liveness": {"timeout_ms": timeout_ms},
+        "calibration": {
+            "branch_allocation": branch_allocation,
+            "detection_frames": len(monitor_rows),
+            "object_bearing_detection_frames": len(object_rows),
+            "max_observed_detection_gap_ms": observed_gap_ms,
+            "liveness_timeout_margin": LIVENESS_TIMEOUT_MARGIN,
+            "liveness_minimum_timeout_ms": LIVENESS_MIN_TIMEOUT_MS,
+        },
+    }
+
+
+def score_safety_monitors(
+    rows: list[dict[str, float | int]], config: dict[str, Any]
+) -> np.ndarray:
+    """Return one union prediction per direct detection frame."""
+    monitors = DetectionSafetyMonitors(config)
+    return np.asarray(
+        [any(result["anomalous"] for result in monitors.observe(row)) for row in rows], dtype=bool
+    )
+
+
 def upper_tail_threshold(values: np.ndarray, allocation: float, *, strict: bool) -> float:
     """Choose a deterministic empirical upper-tail threshold.
 
@@ -372,12 +504,15 @@ def calibrate_model(
     *,
     target_clean_fpr: float = 0.01,
     min_rows_per_dataset: int = 1,
+    monitor_streams: list[Path] | None = None,
 ) -> dict[str, Any]:
     """Freeze hybrid thresholds using clean validation data only.
 
-    The forest and guardrail branches each receive half of the prescribed FPR
-    budget.  Their OR is then bounded by the sum of those budgets on the
-    calibration cohort, without looking at faults or final-test streams.
+    The forest, generic guardrails, confidence-health, and source-freshness
+    branches each receive one quarter of the prescribed FPR budget. Their OR
+    is therefore bounded by that budget on the calibration cohort, without
+    looking at faults or final-test streams. Liveness is calibrated to the
+    observed clean inter-message cadence and must be validated independently.
     """
     if not 0 < target_clean_fpr < 0.5:
         raise ValueError("target clean FPR must be between 0 and 0.5")
@@ -389,18 +524,29 @@ def calibrate_model(
         raise ValueError("model feature schema does not match this package")
     matrix, included = calibration_matrix(validation_datasets, min_rows_per_dataset)
     scores = score_feature_matrix(bundle, matrix, "hybrid")
-    allocation = target_clean_fpr / 2
+    allocation = target_clean_fpr / SAFETY_MONITOR_BRANCH_COUNT
     forest_threshold = upper_tail_threshold(scores["forest_scores"], allocation, strict=True)
     guardrail_threshold = upper_tail_threshold(scores["guardrail_scores"], allocation, strict=False)
+
+    if monitor_streams:
+        monitor_rows, monitor_sources = monitor_rows_from_streams(monitor_streams)
+        monitor_calibration_source = "direct_detection_streams"
+    else:
+        monitor_rows = monitor_rows_from_features(matrix)
+        monitor_sources = included
+        monitor_calibration_source = "feature_rows_compatibility_fallback"
+    safety_monitors = build_safety_monitor_config(monitor_rows, branch_allocation=allocation)
 
     frozen_bundle = deepcopy(bundle)
     frozen_metadata = frozen_bundle["metadata"]
     frozen_metadata["threshold"] = forest_threshold
     frozen_metadata["guardrail_threshold"] = guardrail_threshold
+    frozen_metadata["safety_monitors"] = safety_monitors
     frozen_scores = score_feature_matrix(frozen_bundle, matrix, "hybrid")
-    predictions = np.asarray(frozen_scores["predictions"], dtype=bool)
+    hybrid_predictions = np.asarray(frozen_scores["predictions"], dtype=bool)
+    monitor_predictions = score_safety_monitors(monitor_rows, safety_monitors)
     calibration = {
-        "method": "validation_upper_tail_split_budget",
+        "method": "validation_upper_tail_four_branch_budget",
         "target_clean_fpr": target_clean_fpr,
         "branch_allocation": allocation,
         "validation_datasets": included,
@@ -411,9 +557,22 @@ def calibrate_model(
         "forest_threshold_after": forest_threshold,
         "guardrail_threshold_before": float(metadata["guardrail_threshold"]),
         "guardrail_threshold_after": guardrail_threshold,
-        "observed_validation_false_positive_rate": float(predictions.mean()),
-        "observed_validation_false_positive_ticks": int(predictions.sum()),
+        "observed_hybrid_false_positive_rate": float(hybrid_predictions.mean()),
+        "observed_hybrid_false_positive_ticks": int(hybrid_predictions.sum()),
+        "monitor_calibration_source": monitor_calibration_source,
+        "monitor_calibration_datasets": monitor_sources,
+        "monitor_false_positive_rate": float(monitor_predictions.mean()),
+        "monitor_false_positive_frames": int(monitor_predictions.sum()),
     }
+    # Retain these compatibility names for existing reports and callers. They
+    # describe the hybrid planning-tick branch only; monitor outcomes are
+    # recorded separately because their denominator is detection frames.
+    calibration["observed_validation_false_positive_rate"] = calibration[
+        "observed_hybrid_false_positive_rate"
+    ]
+    calibration["observed_validation_false_positive_ticks"] = calibration[
+        "observed_hybrid_false_positive_ticks"
+    ]
     frozen_metadata["calibration"] = calibration
     output.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(frozen_bundle, output)
@@ -436,7 +595,53 @@ def evaluate_model(
     if metadata["feature_names"] != list(MODEL_FEATURE_NAMES):
         raise ValueError("model feature schema does not match this package")
 
-    rows = extract_features(iter_events(stream))
+    monitor_config = monitor_config_from_metadata(metadata)
+    rows: list[dict[str, float | int]] = []
+    monitor_rows: list[dict[str, float | int]] = []
+    decisions: list[dict[str, Any]] = []
+    extractor = FeatureExtractor()
+    monitor_extractor = FeatureExtractor() if monitor_config is not None else None
+    monitors = DetectionSafetyMonitors(monitor_config)
+    liveness = (
+        DetectionLiveness(float(monitor_config["perception_liveness"]["timeout_ms"]))
+        if monitor_config is not None
+        else None
+    )
+    for event in iter_events(stream):
+        now_ns = event_time_ns(event)
+        if liveness is not None and liveness.timed_out(now_ns):
+            timeout_ns = liveness.timeout_at_ns()
+            assert timeout_ns is not None
+            decisions.append(
+                {
+                    "timestamp_ns": timeout_ns,
+                    "path": "perception_liveness_timeout",
+                    "anomalous": True,
+                    "consecutive_anomalies": 1,
+                }
+            )
+        if event["kind"] == "detections":
+            if liveness is not None:
+                liveness.record_detection(now_ns)
+            if monitor_extractor is not None:
+                monitor_row = monitor_extractor.process_detection_tick(event)
+                monitor_rows.append(monitor_row)
+                for result in monitors.observe(monitor_row):
+                    decisions.append(
+                        {
+                            "timestamp_ns": int(monitor_row["timestamp_ns"]),
+                            **result,
+                        }
+                    )
+        elif monitor_extractor is not None:
+            monitor_extractor.update_trajectory_context(event)
+
+        row = extractor.process_event(event)
+        if row is not None:
+            rows.append(row)
+
+    if not rows:
+        raise ValueError(f"{stream} contains no complete perception/planning ticks")
     timestamps = np.asarray([row["timestamp_ns"] for row in rows], dtype=np.int64)
     matrix = np.asarray(
         [[float(row[name]) for name in MODEL_FEATURE_NAMES] for row in rows], dtype=np.float64
@@ -450,6 +655,15 @@ def evaluate_model(
     guardrail_threshold = float(scoring["guardrail_threshold"])
     ground_truth = json.loads(ground_truth_path.read_text(encoding="utf-8"))
 
+    for timestamp, prediction in zip(timestamps, predictions, strict=True):
+        decisions.append(
+            {
+                "timestamp_ns": int(timestamp),
+                "path": "trajectory_hybrid",
+                "anomalous": bool(prediction),
+            }
+        )
+
     active_any = np.zeros(len(timestamps), dtype=bool)
     recovery_window_ns = 500_000_000
     fault_reports = []
@@ -458,8 +672,17 @@ def evaluate_model(
         active_any |= (timestamps >= fault["start_ns"]) & (
             timestamps < fault["end_ns"] + recovery_window_ns
         )
-        detected_indices = np.flatnonzero(active & predictions)
-        first_detection_ns = int(timestamps[detected_indices[0]]) if len(detected_indices) else None
+        active_decisions = [
+            decision
+            for decision in decisions
+            if bool(decision["anomalous"])
+            and int(fault["start_ns"]) <= int(decision["timestamp_ns"]) < int(fault["end_ns"])
+        ]
+        active_decisions.sort(key=lambda decision: int(decision["timestamp_ns"]))
+        first_decision = active_decisions[0] if active_decisions else None
+        first_detection_ns = (
+            int(first_decision["timestamp_ns"]) if first_decision is not None else None
+        )
         active_violations = guardrail_violations[active]
         triggered_features = [
             name
@@ -471,8 +694,15 @@ def evaluate_model(
                 **fault,
                 "scored_ticks": int(active.sum()),
                 "anomalous_ticks": int((active & predictions).sum()),
+                "anomalous_decisions": len(active_decisions),
                 "detected": first_detection_ns is not None,
                 "first_detection_ns": first_detection_ns,
+                "first_decision_path": (
+                    str(first_decision["path"]) if first_decision is not None else None
+                ),
+                "decision_paths": sorted(
+                    {str(decision["path"]) for decision in active_decisions}
+                ),
                 "time_to_detect_ms": (
                     (first_detection_ns - fault["start_ns"]) / 1_000_000
                     if first_detection_ns is not None
@@ -487,28 +717,80 @@ def evaluate_model(
         )
 
     normal = ~active_any
+    monitor_timestamps = np.asarray(
+        [int(row["timestamp_ns"]) for row in monitor_rows], dtype=np.int64
+    )
+    monitor_normal = np.ones(len(monitor_rows), dtype=bool)
+    for fault in ground_truth["faults"]:
+        monitor_normal &= ~(
+            (monitor_timestamps >= int(fault["start_ns"]))
+            & (monitor_timestamps < int(fault["end_ns"]) + recovery_window_ns)
+        )
+    monitor_decisions = [
+        decision
+        for decision in decisions
+        if str(decision["path"]) in {"confidence_health", "source_freshness"}
+    ]
+    monitor_by_timestamp_path = {
+        (int(decision["timestamp_ns"]), str(decision["path"])): bool(decision["anomalous"])
+        for decision in monitor_decisions
+    }
+    monitor_false_positives = 0
+    monitor_path_false_positives: dict[str, int] = {
+        "confidence_health": 0,
+        "source_freshness": 0,
+    }
+    for timestamp, is_normal in zip(monitor_timestamps, monitor_normal, strict=True):
+        if not is_normal:
+            continue
+        for path in monitor_path_false_positives:
+            if monitor_by_timestamp_path.get((int(timestamp), path), False):
+                monitor_false_positives += 1
+                monitor_path_false_positives[path] += 1
+    liveness_false_positives = sum(
+        1
+        for decision in decisions
+        if str(decision["path"]) == "perception_liveness_timeout"
+        and not any(
+            int(fault["start_ns"]) <= int(decision["timestamp_ns"])
+            < int(fault["end_ns"]) + recovery_window_ns
+            for fault in ground_truth["faults"]
+        )
+    )
     normal_guardrail_trigger_counts = {
         name: int(np.sum(guardrail_violations[normal, index] > guardrail_threshold))
         for index, name in enumerate(GUARDRAIL_FEATURES)
     }
+    core_false_positives = int((normal & predictions).sum())
+    normal_decisions = int(normal.sum()) + int(monitor_normal.sum())
+    false_positive_decisions = (
+        core_false_positives + monitor_false_positives + liveness_false_positives
+    )
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "model": str(model_path),
         "stream": str(stream),
         "detector_mode": mode,
         "threshold": threshold,
         "guardrail_threshold": guardrail_threshold,
         "tick_count": len(rows),
-        "normal_ticks": int(normal.sum()),
+        "normal_ticks": normal_decisions,
+        "hybrid_normal_ticks": int(normal.sum()),
+        "monitor_normal_frames": int(monitor_normal.sum()),
         "recovery_window_ms": recovery_window_ns / 1_000_000,
-        "false_positive_ticks": int((normal & predictions).sum()),
-        "false_positive_rate": float((normal & predictions).sum() / normal.sum())
-        if normal.any()
+        "false_positive_ticks": false_positive_decisions,
+        "hybrid_false_positive_ticks": core_false_positives,
+        "monitor_false_positive_frames": monitor_false_positives,
+        "liveness_false_positive_timeouts": liveness_false_positives,
+        "monitor_path_false_positives": monitor_path_false_positives,
+        "false_positive_rate": float(false_positive_decisions / normal_decisions)
+        if normal_decisions
         else 0.0,
         "score_min": float(scores.min()),
         "score_max": float(scores.max()),
         "guardrail_score_max": float(guardrail_scores.max()),
         "normal_guardrail_trigger_counts": normal_guardrail_trigger_counts,
+        "safety_monitor_config": monitor_config,
         "faults": fault_reports,
     }
     output.parent.mkdir(parents=True, exist_ok=True)

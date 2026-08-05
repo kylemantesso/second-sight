@@ -12,6 +12,7 @@ the versioned source of truth is
 | ID | Change from upstream route | Status |
 | --- | --- | --- |
 | `north-approach-right-turn` | Starts on the approximately 230 m predecessor lane, then uses the original right-turn goal. | Validated on Graviton (2026-08-03) |
+| `straight-through-intersection` | Takes the straight-through branch from the original ego start. | V2 candidate: not yet validated |
 | `npc1-crossing-route` | Promotes the simulator's first NPC crossing route to ego, moving that NPC clear of its original start. | Validated on Graviton (2026-08-03) |
 | `npc3-crossing-route` | Promotes the simulator's third NPC crossing route to ego, moving that NPC behind the new ego start. | Validated on Graviton (2026-08-03) |
 | `extended-right-turn` | Uses the original start, then continues onto the successor of the original goal lane. | Rejected: did not reach `WaitingForEngage` |
@@ -106,3 +107,11 @@ The final-test route must never be used to choose features, tune the model, or
 calibrate thresholds. The `npc2-crossing-route` attempt was rejected after
 Autoware did not publish a route trajectory. Its failure is retained in the
 versioned configuration for reproducibility, but it is not part of the split.
+
+## V2 final-route candidate
+
+`straight-through-intersection` is reserved as the only candidate for the v2
+headline final cohort. It must first pass the native-Arm smoke protocol, then
+be frozen in a new manifest before three clean recordings are collected. Until
+then it is not a data source and must not be used for feature or threshold
+tuning. The full sequence is in [`v2-validation.md`](v2-validation.md).
