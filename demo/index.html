@@ -95,7 +95,10 @@
 
           <div class="replay-controls">
             <button class="primary-button" id="play-button" type="button">
-              <span aria-hidden="true">▶</span> Start replay
+              <span aria-hidden="true">▶</span> Drive normal
+            </button>
+            <button class="inject-button" id="inject-button" type="button">
+              <span class="inject-icon" aria-hidden="true">↯</span> Inject vanish
             </button>
             <button class="secondary-button" id="reset-button" type="button">Reset</button>
             <div class="replay-status" aria-live="polite">
@@ -103,6 +106,10 @@
               <span id="replay-status">Ready to replay</span>
             </div>
           </div>
+          <p class="inject-note">
+            <span aria-hidden="true">●</span> Visual injection control — it triggers this
+            browser replay, not the live ROS 2 fault-injector node.
+          </p>
         </article>
 
         <article class="watchdog-panel panel">

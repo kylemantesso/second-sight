@@ -110,6 +110,7 @@ const elements = {
   sceneTitle: document.querySelector("#scene-title"),
   sceneOverlay: document.querySelector("#scene-overlay"),
   playButton: document.querySelector("#play-button"),
+  injectButton: document.querySelector("#inject-button"),
   resetButton: document.querySelector("#reset-button"),
   replayStatus: document.querySelector("#replay-status"),
   statusDot: document.querySelector("#status-dot"),
@@ -133,7 +134,8 @@ let selected = "vanish";
 let playing = false;
 let startedAt = 0;
 let frame = 0;
-const replayDuration = 7100;
+let replayMode = "drive";
+let replayDuration = 7100;
 
 for (let index = 0; index < 42; index += 1) {
   const bar = document.createElement("span");
@@ -177,6 +179,7 @@ function updateScenarioCopy() {
   elements.serviceTitle.textContent = scenario.serviceTitle;
   elements.serviceDescription.textContent = scenario.serviceDescription;
   elements.serviceBadge.textContent = scenario.serviceBadge;
+  elements.injectButton.innerHTML = `<span class="inject-icon" aria-hidden="true">↯</span> Inject ${scenario.label.toLowerCase()}`;
 }
 
 function selectScenario(key) {
@@ -188,6 +191,12 @@ function selectScenario(key) {
 }
 
 function replayPhase(progress) {
+  if (replayMode === "inject") {
+    if (progress < 0.14) return 0;
+    if (progress < 0.4) return 1;
+    if (progress < 0.72) return 2;
+    return 3;
+  }
   if (progress < 0.35) return 0;
   if (progress < 0.59) return 1;
   if (progress < 0.81) return 2;
@@ -222,7 +231,8 @@ function renderState(progress) {
   elements.scene.dataset.state = sceneStates[phase];
   elements.scene.dataset.running = String(playing);
   elements.sceneOverlay.textContent = phase === 0 ? "NORMAL PERCEPTION" : labels[phase].toUpperCase();
-  elements.replayStatus.textContent = playing ? labels[phase] : "Ready to replay";
+  const status = replayMode === "inject" && phase === 1 ? `Injecting ${scenarios[selected].label.toLowerCase()} fault` : labels[phase];
+  elements.replayStatus.textContent = playing ? status : "Ready to inject";
   elements.statusDot.className = `status-dot${phase === 1 ? " warning" : phase >= 2 ? " danger" : ""}`;
   elements.mode.textContent = phase >= 2 ? "ANOMALY" : "MONITORING";
   elements.mode.classList.toggle("detected", phase >= 2);
@@ -242,18 +252,22 @@ function tick(now) {
   }
   playing = false;
   elements.scene.dataset.running = "false";
-  elements.playButton.innerHTML = '<span aria-hidden="true">↻</span> Replay again';
-  elements.replayStatus.textContent = "Replay complete";
+  elements.playButton.innerHTML = '<span aria-hidden="true">▶</span> Drive normal';
+  elements.injectButton.disabled = false;
+  elements.replayStatus.textContent = replayMode === "inject" ? "Injection sequence complete" : "Drive replay complete";
 }
 
-function startReplay() {
+function startReplay(mode) {
   if (playing) {
     stopReplay();
     return;
   }
   playing = true;
+  replayMode = mode;
+  replayDuration = mode === "inject" ? 4700 : 7100;
   startedAt = performance.now();
   elements.playButton.innerHTML = '<span aria-hidden="true">■</span> Stop replay';
+  elements.injectButton.disabled = true;
   frame = requestAnimationFrame(tick);
 }
 
@@ -261,11 +275,13 @@ function stopReplay() {
   playing = false;
   cancelAnimationFrame(frame);
   elements.scene.dataset.running = "false";
-  elements.playButton.innerHTML = '<span aria-hidden="true">▶</span> Start replay';
+  elements.playButton.innerHTML = '<span aria-hidden="true">▶</span> Drive normal';
+  elements.injectButton.disabled = false;
   elements.replayStatus.textContent = "Replay paused";
 }
 
-elements.playButton.addEventListener("click", startReplay);
+elements.playButton.addEventListener("click", () => startReplay("drive"));
+elements.injectButton.addEventListener("click", () => startReplay("inject"));
 elements.resetButton.addEventListener("click", () => {
   stopReplay();
   renderState(0);
