@@ -109,9 +109,7 @@ const elements = {
   sceneFrame: document.querySelector("#scene-frame"),
   sceneTitle: document.querySelector("#scene-title"),
   sceneOverlay: document.querySelector("#scene-overlay"),
-  playButton: document.querySelector("#play-button"),
   injectButton: document.querySelector("#inject-button"),
-  resetButton: document.querySelector("#reset-button"),
   replayStatus: document.querySelector("#replay-status"),
   statusDot: document.querySelector("#status-dot"),
   mode: document.querySelector("#mode-pill"),
@@ -131,11 +129,12 @@ const elements = {
 };
 
 let selected = "vanish";
-let playing = false;
-let startedAt = 0;
 let frame = 0;
-let replayMode = "drive";
-let replayDuration = 7100;
+let visualStartedAt = performance.now();
+let injectionStartedAt = null;
+let alertStartedAt = null;
+const injectionDuration = 3300;
+const alertHoldDuration = 2400;
 
 for (let index = 0; index < 42; index += 1) {
   const bar = document.createElement("span");
@@ -183,23 +182,16 @@ function updateScenarioCopy() {
 }
 
 function selectScenario(key) {
+  if (injectionStartedAt !== null || alertStartedAt !== null) return;
   selected = key;
-  stopReplay();
   updateScenarioCopy();
   renderTabs();
-  renderState(0);
 }
 
 function replayPhase(progress) {
-  if (replayMode === "inject") {
-    if (progress < 0.14) return 0;
-    if (progress < 0.4) return 1;
-    if (progress < 0.72) return 2;
-    return 3;
-  }
-  if (progress < 0.35) return 0;
-  if (progress < 0.59) return 1;
-  if (progress < 0.81) return 2;
+  if (progress < 0.16) return 0;
+  if (progress < 0.46) return 1;
+  if (progress < 0.72) return 2;
   return 3;
 }
 
@@ -223,70 +215,67 @@ function renderPulse(progress, phase) {
   elements.pulseMarker.style.left = `${Math.min(92, 27 + progress * 66)}%`;
 }
 
-function renderState(progress) {
-  const requestedPhase = replayPhase(progress);
+function renderState(signalProgress, requestedPhase, frameNumber) {
   const phase = requestedPhase === 3 && !scenarios[selected].hasServiceEvidence ? 2 : requestedPhase;
   const labels = ["Normal stream", "Fault injected", "Anomaly detected", "Safe-stop request"];
   const sceneStates = ["clean", "fault", "detected", "detected"];
   elements.scene.dataset.state = sceneStates[phase];
-  elements.scene.dataset.running = String(playing);
+  elements.scene.dataset.running = "true";
   elements.sceneOverlay.textContent = phase === 0 ? "NORMAL PERCEPTION" : labels[phase].toUpperCase();
-  const status = replayMode === "inject" && phase === 1 ? `Injecting ${scenarios[selected].label.toLowerCase()} fault` : labels[phase];
-  elements.replayStatus.textContent = playing ? status : "Ready to inject";
+  const status = [
+    "Monitoring normal perception",
+    `Injecting ${scenarios[selected].label.toLowerCase()} fault`,
+    `Anomaly detected via ${scenarios[selected].path.toLowerCase()}`,
+    "Safe-stop request issued",
+  ][phase];
+  elements.replayStatus.textContent = status;
   elements.statusDot.className = `status-dot${phase === 1 ? " warning" : phase >= 2 ? " danger" : ""}`;
   elements.mode.textContent = phase >= 2 ? "ANOMALY" : "MONITORING";
   elements.mode.classList.toggle("detected", phase >= 2);
   elements.signal.textContent = phase >= 2 ? "ANOMALY" : "NORMAL";
   elements.signal.style.color = phase >= 2 ? "var(--danger)" : "var(--lime)";
-  elements.sceneFrame.textContent = `FRAME ${String(Math.round(progress * 180)).padStart(3, "0")}`;
+  elements.sceneFrame.textContent = `FRAME ${String(frameNumber % 1000).padStart(3, "0")}`;
   setTimeline(phase);
-  renderPulse(progress, phase);
+  renderPulse(signalProgress, phase);
 }
 
 function tick(now) {
-  const progress = Math.min((now - startedAt) / replayDuration, 1);
-  renderState(progress);
-  if (progress < 1 && playing) {
-    frame = requestAnimationFrame(tick);
-    return;
-  }
-  playing = false;
-  elements.scene.dataset.running = "false";
-  elements.playButton.innerHTML = '<span aria-hidden="true">▶</span> Drive normal';
-  elements.injectButton.disabled = false;
-  elements.replayStatus.textContent = replayMode === "inject" ? "Injection sequence complete" : "Drive replay complete";
-}
+  const idleSignal = ((now - visualStartedAt) % 8000) / 8000;
+  const frameNumber = Math.floor((now - visualStartedAt) / 33);
+  let phase = 0;
+  let signalProgress = idleSignal;
 
-function startReplay(mode) {
-  if (playing) {
-    stopReplay();
-    return;
+  if (injectionStartedAt !== null) {
+    const progress = Math.min((now - injectionStartedAt) / injectionDuration, 1);
+    phase = replayPhase(progress);
+    signalProgress = progress;
+    if (progress === 1) {
+      injectionStartedAt = null;
+      alertStartedAt = now;
+    }
+  } else if (alertStartedAt !== null) {
+    const alertElapsed = now - alertStartedAt;
+    phase = scenarios[selected].hasServiceEvidence ? 3 : 2;
+    signalProgress = 0.74 + ((alertElapsed % 520) / 520) * 0.18;
+    if (alertElapsed >= alertHoldDuration) {
+      alertStartedAt = null;
+      updateScenarioCopy();
+    }
   }
-  playing = true;
-  replayMode = mode;
-  replayDuration = mode === "inject" ? 4700 : 7100;
-  startedAt = performance.now();
-  elements.playButton.innerHTML = '<span aria-hidden="true">■</span> Stop replay';
-  elements.injectButton.disabled = true;
+
+  elements.injectButton.disabled = injectionStartedAt !== null || alertStartedAt !== null;
+  renderState(signalProgress, phase, frameNumber);
   frame = requestAnimationFrame(tick);
 }
 
-function stopReplay() {
-  playing = false;
-  cancelAnimationFrame(frame);
-  elements.scene.dataset.running = "false";
-  elements.playButton.innerHTML = '<span aria-hidden="true">▶</span> Drive normal';
-  elements.injectButton.disabled = false;
-  elements.replayStatus.textContent = "Replay paused";
+function injectFault() {
+  if (injectionStartedAt !== null || alertStartedAt !== null) return;
+  injectionStartedAt = performance.now();
+  elements.injectButton.disabled = true;
 }
 
-elements.playButton.addEventListener("click", () => startReplay("drive"));
-elements.injectButton.addEventListener("click", () => startReplay("inject"));
-elements.resetButton.addEventListener("click", () => {
-  stopReplay();
-  renderState(0);
-});
+elements.injectButton.addEventListener("click", injectFault);
 
 updateScenarioCopy();
 renderTabs();
-renderState(0);
+frame = requestAnimationFrame(tick);

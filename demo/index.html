@@ -23,9 +23,9 @@
           <p class="kicker">Who watches the AI?</p>
           <h1>Make silent perception failures visible.</h1>
           <p class="hero-copy">
-            Replay the six deterministic failures used to evaluate Second Sight. The
-            animated signal is a demo visualisation; every result card is sourced from
-            the frozen, held-out Arm validation.
+            Watch a continuously running visual driver, then inject one of the six
+            deterministic failures used to evaluate Second Sight. Every result card is
+            sourced from the frozen, held-out Arm validation.
           </p>
         </div>
         <div class="hero-evidence">
@@ -43,14 +43,14 @@
         <div class="scenario-tabs" id="scenario-tabs" role="tablist"></div>
       </section>
 
-      <section class="demo-grid" aria-label="Fault replay visualisation">
+      <section class="demo-grid" aria-label="Interactive fault injection visualisation">
         <article class="road-panel panel">
           <div class="panel-heading">
             <div>
-              <p class="kicker">Simulation replay</p>
+              <p class="kicker">Continuous simulation</p>
               <h2 id="scene-title">Vanish</h2>
             </div>
-            <span class="demo-label">VISUAL DEMO</span>
+            <span class="demo-label">VISUAL DRIVER</span>
           </div>
 
           <div class="road-scene" id="road-scene" data-state="clean">
@@ -87,28 +87,24 @@
             <div class="radar-ring ring-one" aria-hidden="true"></div>
             <div class="radar-ring ring-two" aria-hidden="true"></div>
             <div class="scene-telemetry" aria-label="Visual replay frame telemetry">
-              <span>VISUAL REPLAY</span>
+              <span>CONTINUOUS VISUAL</span>
               <strong id="scene-frame">FRAME 000</strong>
             </div>
             <div class="scene-overlay" id="scene-overlay">NORMAL PERCEPTION</div>
           </div>
 
           <div class="replay-controls">
-            <button class="primary-button" id="play-button" type="button">
-              <span aria-hidden="true">▶</span> Drive normal
-            </button>
             <button class="inject-button" id="inject-button" type="button">
               <span class="inject-icon" aria-hidden="true">↯</span> Inject vanish
             </button>
-            <button class="secondary-button" id="reset-button" type="button">Reset</button>
             <div class="replay-status" aria-live="polite">
               <span class="status-dot" id="status-dot"></span>
-              <span id="replay-status">Ready to replay</span>
+              <span id="replay-status">Monitoring normal perception</span>
             </div>
           </div>
           <p class="inject-note">
-            <span aria-hidden="true">●</span> Visual injection control — it triggers this
-            browser replay, not the live ROS 2 fault-injector node.
+            <span aria-hidden="true">●</span> The visual driver runs continuously. Injecting a
+            fault triggers this browser demonstration, not the live ROS 2 fault-injector node.
           </p>
         </article>
 
