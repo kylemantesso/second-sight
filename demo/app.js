@@ -110,6 +110,7 @@ const elements = {
   sceneTitle: document.querySelector("#scene-title"),
   sceneOverlay: document.querySelector("#scene-overlay"),
   injectButton: document.querySelector("#inject-button"),
+  resetButton: document.querySelector("#reset-button"),
   liveBadge: document.querySelector("#live-badge"),
   controlMode: document.querySelector("#control-mode"),
   replayStatus: document.querySelector("#replay-status"),
@@ -311,6 +312,8 @@ function tick(now) {
   elements.injectButton.disabled = live.connected
     ? !live.controlReady || live.phase !== 0
     : injectionStartedAt !== null || alertStartedAt !== null;
+  elements.resetButton.hidden = !live.connected || live.phase < 2;
+  elements.resetButton.disabled = !live.controlReady;
   renderState(signalProgress, phase, frameNumber);
   frame = requestAnimationFrame(tick);
 }
@@ -327,6 +330,12 @@ function injectFault() {
 }
 
 elements.injectButton.addEventListener("click", injectFault);
+elements.resetButton.addEventListener("click", () => {
+  if (!live.connected || !live.controlReady || live.phase < 2) return;
+  publishLiveCommand({ action: "reset" });
+  live.detail = "Live dry-run reset requested";
+  elements.resetButton.disabled = true;
+});
 
 function faultKey(faultType) {
   return {
@@ -477,7 +486,13 @@ function advertiseLiveControl() {
 }
 
 function publishLiveFault() {
-  const command = JSON.stringify({ fault_type: faultType(selected), duration_ms: 900 });
+  publishLiveCommand({ fault_type: faultType(selected), duration_ms: 900 });
+  live.detail = `Live command sent · injecting ${scenarios[selected].label.toLowerCase()}`;
+  elements.injectButton.disabled = true;
+}
+
+function publishLiveCommand(commandPayload) {
+  const command = JSON.stringify(commandPayload);
   const text = encoder.encode(command);
   const cdr = new Uint8Array(8 + text.length + 1);
   const cdrView = new DataView(cdr.buffer);
@@ -490,8 +505,6 @@ function publishLiveFault() {
   frameView.setUint32(1, 100, true);
   frame.set(cdr, 5);
   live.socket.send(frame);
-  live.detail = `Live command sent · injecting ${scenarios[selected].label.toLowerCase()}`;
-  elements.injectButton.disabled = true;
 }
 
 function connectLiveModel() {

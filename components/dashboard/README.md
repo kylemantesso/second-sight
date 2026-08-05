@@ -59,7 +59,11 @@ CONNECTED**. The Inject button then publishes a command to the real ROS 2 fault
 injector; the confirmation, decision path, anomaly score, and dry-run
 safe-stop state are consumed from real Second Sight topics. The moving road
 scene is deliberately labelled **VISUAL DRIVER**: it illustrates the
-perception failure but is not a rendered Autoware view.
+perception failure but is not a rendered Autoware view. A dry-run stop remains
+latched after detection, just as a safety monitor should. Use **Reset live run**
+to send an explicit ROS reset command before demonstrating another fault; that
+button exists only in the local dashboard-demo configuration and never clears a
+real vehicle stop.
 
 If the live stack is unavailable, the same page falls back to a clearly labelled
 browser-only visual walkthrough. It retains the held-out Arm result cards but

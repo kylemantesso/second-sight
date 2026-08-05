@@ -34,6 +34,7 @@ services:
       --mode hybrid
       --reset-gap-seconds 2
       --disable-source-freshness
+      --dashboard-reset-control
     depends_on:
       - fault-injector
 

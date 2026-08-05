@@ -112,6 +112,7 @@ class SecondSightNode(Node):
         liveness_timeout_ms: float | None,
         enable_safety_monitors: bool,
         enable_source_freshness: bool,
+        dashboard_reset_control: bool,
     ) -> None:
         super().__init__("second_sight")
         self.extractor = FeatureExtractor()
@@ -133,6 +134,7 @@ class SecondSightNode(Node):
         self.safety_monitors = DetectionSafetyMonitors(
             self.safety_monitor_config, enable_source_freshness=enable_source_freshness
         )
+        self.enable_source_freshness = enable_source_freshness
         self.monitor_extractor = FeatureExtractor() if self.safety_monitors.enabled else None
         self.enable_safe_stop = enable_safe_stop
         self.stop_after = stop_after
@@ -149,6 +151,7 @@ class SecondSightNode(Node):
             else None
         )
         active_timeout_ms = liveness_timeout_ms or configured_timeout_ms
+        self.active_liveness_timeout_ms = active_timeout_ms
         self.liveness = (
             DetectionLiveness(active_timeout_ms)
             if active_timeout_ms is not None
@@ -184,6 +187,10 @@ class SecondSightNode(Node):
         self.stop_response_event_publisher = self.create_publisher(
             String, "/second_sight/latency/safe_stop_response", 10
         )
+        if dashboard_reset_control:
+            self.create_subscription(
+                String, "/second_sight/dashboard/inject_fault", self.on_dashboard_command, 10
+            )
         self.stop_client = self.create_client(SetStop, "/control/vehicle_cmd_gate/set_stop")
         if self.liveness is not None:
             timer_period_seconds = min(max(active_timeout_ms / 4_000, 0.01), 0.1)
@@ -194,11 +201,39 @@ class SecondSightNode(Node):
             f"liveness={'enabled' if self.liveness is not None else 'disabled'}, "
             f"safety_monitors={'enabled' if self.safety_monitors.enabled else 'disabled'}, "
             f"source_freshness={'enabled' if enable_source_freshness else 'disabled'}, "
+            f"dashboard_reset={'enabled' if dashboard_reset_control else 'disabled'}, "
             f"safe_stop={'enabled' if enable_safe_stop else 'dry-run'}"
         )
 
     def now_ns(self) -> int:
         return self.get_clock().now().nanoseconds
+
+    def on_dashboard_command(self, message: String) -> None:
+        """Reset the dry-run demo only when explicitly requested by the dashboard."""
+        try:
+            payload = json.loads(message.data)
+        except json.JSONDecodeError:
+            return
+        if not isinstance(payload, dict) or payload.get("action") != "reset":
+            return
+        self.extractor = FeatureExtractor()
+        self.monitor_extractor = FeatureExtractor() if self.safety_monitors.enabled else None
+        self.safety_monitors = DetectionSafetyMonitors(
+            self.safety_monitor_config,
+            enable_source_freshness=self.enable_source_freshness,
+        )
+        self.consecutive_anomalies = 0
+        self.stop_requested = False
+        self.was_anomalous = False
+        self.fast_consecutive_anomalies = 0
+        self.fast_was_anomalous = False
+        self.last_trajectory_ns = None
+        if self.active_liveness_timeout_ms is not None:
+            self.liveness = DetectionLiveness(self.active_liveness_timeout_ms)
+        self.anomaly_publisher.publish(Bool(data=False))
+        self.stop_publisher.publish(Bool(data=False))
+        self.status_publisher.publish(String(data=json.dumps({"anomalous": False, "reset": True})))
+        self.get_logger().info("reset dry-run dashboard state")
 
     def on_detections(self, message: DetectedObjects) -> None:
         event = detection_event(message, self.now_ns())
@@ -472,6 +507,11 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         action="store_true",
         help="disable only the source-timestamp monitor for a timing-incompatible replay",
     )
+    parser.add_argument(
+        "--dashboard-reset-control",
+        action="store_true",
+        help="allow the dashboard to reset dry-run state after a demonstrated stop",
+    )
     parser.add_argument("--reset-gap-seconds", type=float, default=0.0)
     args, ros_args = parser.parse_known_args()
     if args.stop_after <= 0:
@@ -500,6 +540,7 @@ def main() -> None:
         args.liveness_timeout_ms,
         not args.disable_safety_monitors,
         not args.disable_source_freshness,
+        args.dashboard_reset_control,
     )
     try:
         rclpy.spin(node)

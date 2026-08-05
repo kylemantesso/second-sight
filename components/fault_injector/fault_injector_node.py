@@ -160,16 +160,24 @@ class FaultInjectorNode(Node):
         )
 
     def on_manual_command(self, message: String) -> None:
-        """Queue one dashboard-requested fault for the next detection frame."""
-        if self.manual_engine is not None or self.pending_manual_fault_type is not None:
-            self.get_logger().warning(
-                "ignoring dashboard fault command while another fault is active"
-            )
-            return
+        """Handle a dashboard fault request or an explicit demo reset."""
         try:
             payload = json.loads(message.data)
             if not isinstance(payload, dict):
                 raise ValueError("command must be a JSON object")
+            if payload.get("action") == "reset":
+                self.engine.reset()
+                self.clear_manual_fault()
+                self.pending_manual_fault_type = None
+                self.pending_manual_duration_ms = None
+                self.publish_active_faults([], self.get_clock().now().nanoseconds)
+                self.get_logger().info("reset manual dashboard fault state")
+                return
+            if self.manual_engine is not None or self.pending_manual_fault_type is not None:
+                self.get_logger().warning(
+                    "ignoring dashboard fault command while another fault is active"
+                )
+                return
             fault_type = str(payload["fault_type"])
             duration_ms = int(payload.get("duration_ms", self.manual_duration_ms))
             if fault_type not in self.manual_templates:
