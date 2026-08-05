@@ -106,6 +106,7 @@ const scenarios = {
 const elements = {
   tabs: document.querySelector("#scenario-tabs"),
   scene: document.querySelector("#road-scene"),
+  sceneFrame: document.querySelector("#scene-frame"),
   sceneTitle: document.querySelector("#scene-title"),
   sceneOverlay: document.querySelector("#scene-overlay"),
   playButton: document.querySelector("#play-button"),
@@ -219,6 +220,7 @@ function renderState(progress) {
   const labels = ["Normal stream", "Fault injected", "Anomaly detected", "Safe-stop request"];
   const sceneStates = ["clean", "fault", "detected", "detected"];
   elements.scene.dataset.state = sceneStates[phase];
+  elements.scene.dataset.running = String(playing);
   elements.sceneOverlay.textContent = phase === 0 ? "NORMAL PERCEPTION" : labels[phase].toUpperCase();
   elements.replayStatus.textContent = playing ? labels[phase] : "Ready to replay";
   elements.statusDot.className = `status-dot${phase === 1 ? " warning" : phase >= 2 ? " danger" : ""}`;
@@ -226,6 +228,7 @@ function renderState(progress) {
   elements.mode.classList.toggle("detected", phase >= 2);
   elements.signal.textContent = phase >= 2 ? "ANOMALY" : "NORMAL";
   elements.signal.style.color = phase >= 2 ? "var(--danger)" : "var(--lime)";
+  elements.sceneFrame.textContent = `FRAME ${String(Math.round(progress * 180)).padStart(3, "0")}`;
   setTimeline(phase);
   renderPulse(progress, phase);
 }
@@ -238,6 +241,7 @@ function tick(now) {
     return;
   }
   playing = false;
+  elements.scene.dataset.running = "false";
   elements.playButton.innerHTML = '<span aria-hidden="true">↻</span> Replay again';
   elements.replayStatus.textContent = "Replay complete";
 }
@@ -249,14 +253,16 @@ function startReplay() {
   }
   playing = true;
   startedAt = performance.now();
-  elements.playButton.innerHTML = '<span aria-hidden="true">■</span> Pause replay';
+  elements.playButton.innerHTML = '<span aria-hidden="true">■</span> Stop replay';
   frame = requestAnimationFrame(tick);
 }
 
 function stopReplay() {
   playing = false;
   cancelAnimationFrame(frame);
+  elements.scene.dataset.running = "false";
   elements.playButton.innerHTML = '<span aria-hidden="true">▶</span> Start replay';
+  elements.replayStatus.textContent = "Replay paused";
 }
 
 elements.playButton.addEventListener("click", startReplay);
