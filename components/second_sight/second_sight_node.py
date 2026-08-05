@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -115,6 +116,7 @@ class SecondSightNode(Node):
         dashboard_reset_control: bool,
     ) -> None:
         super().__init__("second_sight")
+        self.model_sha256 = hashlib.sha256(model_path.read_bytes()).hexdigest()
         self.extractor = FeatureExtractor()
         self.scorer = SecondSightScorer(model_path, mode)
         self.fast_extractor = FeatureExtractor() if enable_perception_fast_path else None
@@ -308,6 +310,8 @@ class SecondSightNode(Node):
                         "guardrail_score": result["guardrail_score"],
                         "guardrail_features": result["guardrail_features"],
                         "consecutive_anomalies": self.consecutive_anomalies,
+                        "model_sha256": self.model_sha256,
+                        "mode": "trajectory_hybrid",
                     },
                     separators=(",", ":"),
                 )
@@ -371,6 +375,10 @@ class SecondSightNode(Node):
                             "anomalous": True,
                             "path": result["path"],
                             "consecutive_anomalies": result["consecutive_anomalies"],
+                            "monitor": result,
+                            "monitor_config": self.safety_monitor_config[result["path"]],
+                            "model_sha256": self.model_sha256,
+                            "mode": "direct_perception_monitor",
                         },
                         separators=(",", ":"),
                     )

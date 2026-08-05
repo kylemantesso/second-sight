@@ -65,6 +65,13 @@ to send an explicit ROS reset command before demonstrating another fault; that
 button exists only in the local dashboard-demo configuration and never clears a
 real vehicle stop.
 
+The **Model process trace** panel is deliberately separate from the animated
+scene. It renders raw, live ROS 2 telemetry: the loaded model SHA-256 prefix,
+latest forest score, injector event, anomaly decision, monitor values and
+frozen thresholds, and dry-run stop request. For example, a confidence-collapse
+run shows the measured mean classification probability, its frozen normal-data
+floor, and the two-frame decision count.
+
 If the live stack is unavailable, the same page falls back to a clearly labelled
 browser-only visual walkthrough. It retains the held-out Arm result cards but
 does not claim live scoring in that mode.

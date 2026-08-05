@@ -158,6 +158,24 @@
         <article class="metric-card accent"><span>Arm inference p50</span><strong>751.116 µs</strong><small>25-tree hybrid · 368,261 bytes</small></article>
       </section>
 
+      <section class="live-evidence panel" aria-label="Live model telemetry">
+        <div class="panel-heading">
+          <div>
+            <p class="kicker">Live ROS 2 evidence</p>
+            <h2>Model process trace</h2>
+          </div>
+          <span class="demo-label">RAW TELEMETRY</span>
+        </div>
+        <div class="telemetry-summary">
+          <div><span>Loaded artifact</span><strong id="model-artifact">Awaiting ROS status</strong></div>
+          <div><span>Latest forest score</span><strong id="model-score">—</strong></div>
+          <div><span>Direct monitor evidence</span><strong id="monitor-evidence">Waiting for a model decision</strong></div>
+        </div>
+        <ol class="telemetry-log" id="telemetry-log" aria-live="polite">
+          <li><span>WAITING</span><code>Connect the local ROS 2 stack to receive model telemetry.</code></li>
+        </ol>
+      </section>
+
       <section class="detail-grid">
         <article class="detail-card">
           <p class="kicker">Why this trigger?</p>

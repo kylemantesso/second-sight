@@ -119,6 +119,10 @@ const elements = {
   signal: document.querySelector("#signal-value"),
   signalDetail: document.querySelector("#signal-detail"),
   path: document.querySelector("#decision-path"),
+  modelArtifact: document.querySelector("#model-artifact"),
+  modelScore: document.querySelector("#model-score"),
+  monitorEvidence: document.querySelector("#monitor-evidence"),
+  telemetryLog: document.querySelector("#telemetry-log"),
   pulseBars: document.querySelector("#pulse-bars"),
   pulseMarker: document.querySelector("#pulse-marker"),
   timeline: document.querySelector("#event-timeline"),
@@ -155,6 +159,10 @@ const live = {
   detail: "",
   faultActive: false,
   resetPending: false,
+  lastFaultId: null,
+  stopObserved: false,
+  loggedDecisionPaths: new Set(),
+  loggedMonitorPaths: new Set(),
 };
 
 const liveTopics = {
@@ -391,23 +399,72 @@ function parseCdrFloat64(data) {
   return new DataView(data).getFloat64(17, true);
 }
 
+function appendTelemetry(label, payload) {
+  const waitingEntry = elements.telemetryLog.querySelector("li:first-child span");
+  if (waitingEntry?.textContent === "WAITING") elements.telemetryLog.replaceChildren();
+  const entry = document.createElement("li");
+  const heading = document.createElement("span");
+  const message = document.createElement("code");
+  heading.textContent = label;
+  message.textContent = typeof payload === "string" ? payload : JSON.stringify(payload);
+  entry.append(heading, message);
+  elements.telemetryLog.prepend(entry);
+  while (elements.telemetryLog.children.length > 5) {
+    elements.telemetryLog.lastElementChild.remove();
+  }
+}
+
+function showMonitorEvidence(status) {
+  const monitor = status.monitor;
+  const config = status.monitor_config || {};
+  if (!monitor) return;
+  if (monitor.path === "confidence_health") {
+    const score = Number(monitor.mean_classification_probability).toFixed(4);
+    const floor = Number(config.mean_classification_floor).toFixed(4);
+    elements.monitorEvidence.textContent = `Classification ${score} < frozen floor ${floor} · ${monitor.consecutive_anomalies} consecutive frames`;
+    return;
+  }
+  if (monitor.path === "source_freshness") {
+    elements.monitorEvidence.textContent = `Source age ${Number(monitor.source_age_ms).toFixed(3)} ms · ${monitor.consecutive_anomalies} consecutive frames`;
+  }
+}
+
 function handleLiveMessage(topic, data) {
   if (topic === "/second_sight/status") {
     const payloadText = parseCdrString(data);
     if (payloadText === null) return;
     try {
       const status = JSON.parse(payloadText);
+      if (typeof status.model_sha256 === "string") {
+        elements.modelArtifact.textContent = `SHA-256 ${status.model_sha256.slice(0, 12)}… · ${status.mode || "model"}`;
+      }
       if (typeof status.forest_score === "number") {
         live.detail = `Live model score ${status.forest_score.toFixed(4)}`;
+        elements.modelScore.textContent = status.forest_score.toFixed(6);
       }
-      if (status.anomalous === true) live.phase = Math.max(live.phase, 2);
+      if (status.anomalous === true) {
+        live.phase = Math.max(live.phase, 2);
+        showMonitorEvidence(status);
+        const path = String(status.path || status.monitor?.path || "model");
+        if (!live.loggedMonitorPaths.has(path)) {
+          live.loggedMonitorPaths.add(path);
+          appendTelemetry("MODEL MONITOR", {
+            topic: "/second_sight/status",
+            path,
+            monitor: status.monitor,
+            frozen_config: status.monitor_config,
+          });
+        }
+      }
     } catch {
       live.detail = "Live model status received";
     }
     return;
   }
   if (topic === "/second_sight/anomaly_score") {
-    live.detail = `Live model score ${parseCdrFloat64(data).toFixed(4)}`;
+    const score = parseCdrFloat64(data);
+    live.detail = `Live model score ${score.toFixed(4)}`;
+    elements.modelScore.textContent = score.toFixed(6);
     return;
   }
   if (topic === "/second_sight/fault/event") {
@@ -424,6 +481,11 @@ function handleLiveMessage(topic, data) {
       live.phase = Math.max(live.phase, 1);
       if (live.phase === 1) {
         live.detail = "Live fault injector confirmed corrupted stream";
+      }
+      const faultId = String(fault.fault_ids?.[0] || "fault");
+      if (live.lastFaultId !== faultId) {
+        live.lastFaultId = faultId;
+        appendTelemetry("INJECTOR", { topic: "/second_sight/fault/event", ...fault });
       }
     } catch {
       live.phase = Math.max(live.phase, 1);
@@ -447,6 +509,14 @@ function handleLiveMessage(topic, data) {
         live.phase = Math.max(live.phase, 2);
         live.path = readablePath(String(decision.path));
         live.detail = `Live decision · ${live.path}`;
+        const path = String(decision.path);
+        if (!live.loggedDecisionPaths.has(path)) {
+          live.loggedDecisionPaths.add(path);
+          appendTelemetry("MODEL DECISION", {
+            topic: "/second_sight/latency/decision",
+            ...decision,
+          });
+        }
       }
     } catch {
       // Ignore malformed visual telemetry; the model continues independently.
@@ -457,12 +527,25 @@ function handleLiveMessage(topic, data) {
     if (parseCdrBool(data)) {
       live.phase = 3;
       live.detail = "Live model requested a dry-run safe stop";
+      if (!live.stopObserved) {
+        live.stopObserved = true;
+        appendTelemetry("SAFE STOP", {
+          topic: "/second_sight/safe_stop_requested",
+          value: true,
+          mode: "dry-run",
+        });
+      }
     } else if (live.resetPending) {
       live.phase = 0;
       live.path = null;
       live.faultActive = false;
       live.resetPending = false;
+      live.lastFaultId = null;
+      live.stopObserved = false;
+      live.loggedDecisionPaths.clear();
+      live.loggedMonitorPaths.clear();
       live.detail = "Live watchdog reset; monitoring normal perception";
+      appendTelemetry("DASHBOARD", { action: "reset", value: "accepted" });
     }
   }
 }
@@ -567,6 +650,10 @@ function connectLiveModel() {
     live.detail = "";
     live.faultActive = false;
     live.resetPending = false;
+    live.lastFaultId = null;
+    live.stopObserved = false;
+    live.loggedDecisionPaths.clear();
+    live.loggedMonitorPaths.clear();
     setLiveConnection(false);
     window.setTimeout(connectLiveModel, 3000);
   };
