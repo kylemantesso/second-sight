@@ -54,31 +54,38 @@
           </div>
 
           <div class="road-scene" id="road-scene" data-state="clean">
-            <div class="scene-grid"></div>
-            <div class="city-lights" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-            <div class="motion-streak streak-one" aria-hidden="true"></div>
-            <div class="motion-streak streak-two" aria-hidden="true"></div>
-            <div class="motion-streak streak-three" aria-hidden="true"></div>
-            <div class="road-line line-one"></div>
-            <div class="road-line line-two"></div>
-            <div class="road-line line-three"></div>
-            <div class="lane-label">EGO LANE</div>
+            <div class="scene-sky" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="skyline" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="road-bed" aria-hidden="true">
+              <i class="lane-mark lane-mark-one"></i>
+              <i class="lane-mark lane-mark-two"></i>
+              <i class="lane-mark lane-mark-three"></i>
+              <i class="lane-mark lane-mark-four"></i>
+              <i class="lane-mark lane-mark-five"></i>
+            </div>
+            <div class="road-verge verge-left" aria-hidden="true"></div>
+            <div class="road-verge verge-right" aria-hidden="true"></div>
+            <div class="scene-vignette" aria-hidden="true"></div>
+            <div class="lane-label">SIMULATED WORLD</div>
+            <div class="perception-label">PERCEPTION STREAM <span></span></div>
             <div class="object pedestrian" id="pedestrian">
-              <span class="object-icon">●</span>
+              <span class="object-icon">●</span><span class="object-shadow"></span>
               <span class="bbox">PEDESTRIAN · 0.97</span>
             </div>
             <div class="object vehicle target-object" id="target-object">
-              <span class="object-icon">▰</span>
+              <span class="object-icon"><b></b><b></b></span><span class="object-shadow"></span>
               <span class="bbox">VEHICLE · 0.99</span>
             </div>
             <div class="object vehicle distant-vehicle">
-              <span class="object-icon">▰</span>
+              <span class="object-icon"><b></b><b></b></span><span class="object-shadow"></span>
               <span class="bbox">VEHICLE · 0.98</span>
             </div>
             <div class="ego-car" id="ego-car">
               <span>SECOND SIGHT</span>
             </div>
             <div class="sensor-sweep" aria-hidden="true"></div>
+            <div class="radar-ring ring-one" aria-hidden="true"></div>
+            <div class="radar-ring ring-two" aria-hidden="true"></div>
             <div class="scene-telemetry" aria-label="Visual replay frame telemetry">
               <span>VISUAL REPLAY</span>
               <strong id="scene-frame">FRAME 000</strong>
