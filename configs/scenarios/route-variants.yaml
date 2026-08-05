@@ -13,10 +13,15 @@ variants:
     ego_start: {lane_id: '8221', s: 5.012, offset: -0.195}
     ego_goal: {lane_id: '8672', s: 5.0, offset: -0.2066}
   - id: straight-through-intersection
-    status: candidate
+    status: validated
     description: Take the straight-through branch from the original ego start.
     ego_start: {lane_id: '8221', s: 5.012, offset: -0.195}
     ego_goal: {lane_id: '8212', s: 5.0, offset: -0.195}
+  - id: straight-through-exit
+    status: candidate
+    description: Continue beyond the straight-through intersection onto its successor lane.
+    ego_start: {lane_id: '8221', s: 5.012, offset: -0.195}
+    ego_goal: {lane_id: '3238', s: 5.0, offset: -0.195}
   - id: npc1-crossing-route
     status: validated
     description: Promote Npc1's known crossing route to the ego vehicle.

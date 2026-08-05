@@ -12,7 +12,8 @@ the versioned source of truth is
 | ID | Change from upstream route | Status |
 | --- | --- | --- |
 | `north-approach-right-turn` | Starts on the approximately 230 m predecessor lane, then uses the original right-turn goal. | Validated on Graviton (2026-08-03) |
-| `straight-through-intersection` | Takes the straight-through branch from the original ego start. | Validated on Graviton (2026-08-05); reserved for v2 final test |
+| `straight-through-intersection` | Takes the straight-through branch from the original ego start. | Validated on Graviton (2026-08-05); v2 regression route |
+| `straight-through-exit` | Continues beyond the straight-through intersection to its successor lane. | Candidate: not yet validated |
 | `npc1-crossing-route` | Promotes the simulator's first NPC crossing route to ego, moving that NPC clear of its original start. | Validated on Graviton (2026-08-03) |
 | `npc3-crossing-route` | Promotes the simulator's third NPC crossing route to ego, moving that NPC behind the new ego start. | Validated on Graviton (2026-08-03) |
 | `extended-right-turn` | Uses the original start, then continues onto the successor of the original goal lane. | Rejected: did not reach `WaitingForEngage` |
@@ -116,5 +117,8 @@ planning trajectories, and 11,431 complete feature ticks. It is frozen as the
 v2 final test in
 [`../configs/cohorts/v2-arm-route-split-20260805.yaml`](../configs/cohorts/v2-arm-route-split-20260805.yaml).
 The smoke bag is route-validation evidence only; three post-freeze clean
-recordings are required before v2 training and evaluation. The full sequence
-is in [`v2-validation.md`](v2-validation.md).
+recordings were collected for the first v2 evaluation. That result exposed a
+route-invariance calibration defect, so this route is now regression evidence,
+not the final unseen v2 cohort. `straight-through-exit` must pass the same
+smoke protocol before it can be frozen as the replacement final route. The
+full sequence is in [`v2-validation.md`](v2-validation.md).

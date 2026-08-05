@@ -5,8 +5,10 @@ model: perception liveness, confidence health, and source freshness. It is a
 research prototype for a simulator; it is not a certified safety system.
 
 V1 evidence remains immutable. The previously held-out `npc3-crossing-route`
-may be used only as a known-route regression check. V2's headline final result
-requires an unseen `straight-through-intersection` cohort.
+may be used only as a known-route regression check. The first v2
+`straight-through-intersection` run was observed while correcting a
+route-invariance defect, so it is also regression-only. V2's headline final
+result now requires an unseen `straight-through-exit` cohort.
 
 ## Freeze the new cohort
 
@@ -15,8 +17,8 @@ or tuning anything against it:
 
 ```bash
 ./scripts/openadkit.sh generate-routes
-OPENADKIT_ROUTE_ID=straight-through-intersection \
-OPENADKIT_SCENARIO_PATH=/autoware/scenario-sim/scenario/second-sight-straight-through-intersection.yaml \
+OPENADKIT_ROUTE_ID=straight-through-exit \
+OPENADKIT_SCENARIO_PATH=/autoware/scenario-sim/scenario/second-sight-straight-through-exit.yaml \
 OPENADKIT_TIMEOUT=180 \
 ./scripts/openadkit.sh record 45
 ```

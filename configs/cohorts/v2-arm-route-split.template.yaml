@@ -3,7 +3,7 @@ name: v2-arm-route-split-UNFROZEN
 frozen: false
 purpose: >-
   Template for Second Sight v2. Do not use this manifest for training or final
-  evaluation until straight-through-intersection has passed a native-Arm smoke
+  evaluation until straight-through-exit has passed a native-Arm smoke
   recording and the filename, timestamp, and route evidence below are filled
   in and committed with frozen: true.
 collection_requirements:
@@ -19,4 +19,4 @@ cohorts:
       - npc1-crossing-route
   final_test:
     route_ids:
-      - straight-through-intersection
+      - straight-through-exit

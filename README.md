@@ -172,7 +172,7 @@ The measured AWS development-cost ledger and ongoing storage cost are in
 The next version preserves the measured v1 25-tree hybrid and adds calibrated,
 direct-perception checks for stream liveness, collapsed confidence, and stale
 source frames. This is not yet a new benchmark claim: v2 requires a fresh
-native-Arm final cohort on `straight-through-intersection`, then frozen-model
+native-Arm final cohort on `straight-through-exit`, then frozen-model
 evaluation and repeat integrated service-response trials. The executable
 protocol and cost guardrail are in [`docs/v2-validation.md`](docs/v2-validation.md).
 
