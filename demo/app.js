@@ -153,6 +153,8 @@ const live = {
   phase: 0,
   path: null,
   detail: "",
+  faultActive: false,
+  resetPending: false,
 };
 
 const liveTopics = {
@@ -332,6 +334,7 @@ function injectFault() {
 elements.injectButton.addEventListener("click", injectFault);
 elements.resetButton.addEventListener("click", () => {
   if (!live.connected || !live.controlReady || live.phase < 2) return;
+  live.resetPending = true;
   publishLiveCommand({ action: "reset" });
   live.detail = "Live dry-run reset requested";
   elements.resetButton.disabled = true;
@@ -418,10 +421,20 @@ function handleLiveMessage(topic, data) {
         updateScenarioCopy();
         renderTabs();
       }
-      live.phase = 1;
-      live.detail = "Live fault injector confirmed corrupted stream";
+      live.phase = Math.max(live.phase, 1);
+      if (live.phase === 1) {
+        live.detail = "Live fault injector confirmed corrupted stream";
+      }
     } catch {
-      live.phase = 1;
+      live.phase = Math.max(live.phase, 1);
+    }
+    return;
+  }
+  if (topic === "/second_sight/fault/active") {
+    live.faultActive = parseCdrBool(data);
+    if (!live.faultActive && live.phase === 1) {
+      live.phase = 0;
+      live.detail = "Live injector completed without an anomaly decision";
     }
     return;
   }
@@ -444,9 +457,12 @@ function handleLiveMessage(topic, data) {
     if (parseCdrBool(data)) {
       live.phase = 3;
       live.detail = "Live model requested a dry-run safe stop";
-    } else {
+    } else if (live.resetPending) {
       live.phase = 0;
       live.path = null;
+      live.faultActive = false;
+      live.resetPending = false;
+      live.detail = "Live watchdog reset; monitoring normal perception";
     }
   }
 }
@@ -549,6 +565,8 @@ function connectLiveModel() {
     live.phase = 0;
     live.path = null;
     live.detail = "";
+    live.faultActive = false;
+    live.resetPending = false;
     setLiveConnection(false);
     window.setTimeout(connectLiveModel, 3000);
   };
