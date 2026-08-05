@@ -96,7 +96,10 @@ Key insight for the dev loop: the injector and Second Sight only see message str
 
 ## 10. Deliverables checklist
 
-- [ ] Public repo: MIT license, one-command bring-up, architecture diagram, docs for the fault injector as a standalone tool
-- [ ] Measured benchmark report (Performix + metrics in §8)
+- [x] Public repo: MIT license, architecture diagram, and docs for the fault injector as a standalone tool
+- [x] Measured benchmark report (Performix + held-out Arm metrics in §8)
 - [ ] ≤3-minute demo video per §9
-- [ ] Devpost submission text framing the Second Sight as running on a vehicle's dedicated safety processor (the Graviton instance stands in for in-vehicle silicon)
+- [x] Devpost submission text ([`devpost-submission.md`](devpost-submission.md))
+
+The V2 final Arm result and its scope limits are recorded in
+[`../reports/v2-final-arm-route-validation.md`](../reports/v2-final-arm-route-validation.md).

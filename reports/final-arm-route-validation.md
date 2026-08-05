@@ -1,4 +1,8 @@
-# Final Arm route validation
+# V1 final Arm route validation (superseded for headline claims)
+
+This historical V1 result remains reproducible evidence, but the V2 result on
+an independently frozen route supersedes it for current headline claims. See
+[`v2-final-arm-route-validation.md`](v2-final-arm-route-validation.md).
 
 This is the final, no-leakage evaluation run for Second Sight on native Arm
 Linux. It is deliberately a result record, not a claim that the watchdog is

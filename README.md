@@ -76,6 +76,19 @@ docs/             project brief and developer documentation
 
 ## Current Milestone
 
+**V2 final Arm validation is complete.** On an untouched `straight-through-exit`
+route cohort, the frozen 25-tree hybrid plus calibrated perception-health
+monitors recorded 0 false positives across 35,913 clean decision opportunities
+and detected all six deterministic fault families in 3/3 runs each. The
+native-Graviton model benchmark measured 751.116 µs p50 and 914.808 µs p99
+scoring time for a 368,261-byte model. The full protocol, decision paths,
+service-response evidence, artifact integrity, and important limitations are
+in [`reports/v2-final-arm-route-validation.md`](reports/v2-final-arm-route-validation.md);
+the matching Arm Performix profile is
+[`reports/arm-performix-v2-final-profile.md`](reports/arm-performix-v2-final-profile.md).
+These are simulator/replay results, not a safety certification or physical
+stopping-distance claim.
+
 Completed: ROS 2 container workflow, Open AD Kit scenario, clean bag capture,
 portable event export, deterministic implementations of all six fault modes,
 32-feature extraction, and normal-only baseline/hybrid evaluation. The current
@@ -169,12 +182,14 @@ The measured AWS development-cost ledger and ongoing storage cost are in
 
 ## V2 safety-monitor work
 
-The next version preserves the measured v1 25-tree hybrid and adds calibrated,
+V2 preserves the measured v1 25-tree hybrid and adds calibrated,
 direct-perception checks for stream liveness, collapsed confidence, and stale
-source frames. This is not yet a new benchmark claim: v2 requires a fresh
-native-Arm final cohort on `straight-through-exit`, then frozen-model
-evaluation and repeat integrated service-response trials. The executable
-protocol and cost guardrail are in [`docs/v2-validation.md`](docs/v2-validation.md).
+source frames. The fresh native-Arm final cohort on `straight-through-exit`,
+frozen-model evaluation, repeat integrated service-response trials, and final
+Performix profile are complete. The executable protocol and the explicit
+regression-only status of the first V2 route are in
+[`docs/v2-validation.md`](docs/v2-validation.md). Devpost-ready project copy
+is in [`docs/devpost-submission.md`](docs/devpost-submission.md).
 
 ## License
 

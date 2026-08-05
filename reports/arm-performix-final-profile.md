@@ -8,8 +8,8 @@ braking.
 ## Environment
 
 - Arm Performix engine: 1.20.0; run ID: `2bdb1be309bc`
-- Target: AWS `c8g.4xlarge`, Ubuntu 22.04.5, kernel `6.8.0-1061-aws`, 16
-  Arm Neoverse-V2 cores (`aarch64`)
+- Target: AWS `c8g.4xlarge` (Graviton3E), Ubuntu 22.04.5, kernel
+  `6.8.0-1061-aws`, 16 Arm64 vCPUs (`aarch64`)
 - Target revision: `1e638a2`
 - Model: frozen 25-tree hybrid bundle, 367,900 bytes, SHA-256
   `2e38c41f12effa198e30a4c34bea99fe81a973fb15c41e2a72148db88ec599fa`

@@ -22,3 +22,10 @@ and remaining limitations, is in
 [`final-arm-route-validation.md`](final-arm-route-validation.md).
 Its matching final Arm Performix System Utilization profile is in
 [`arm-performix-final-profile.md`](arm-performix-final-profile.md).
+
+The current submission result is the independently frozen V2 final route:
+[`v2-final-arm-route-validation.md`](v2-final-arm-route-validation.md).
+It adds calibrated confidence, source-freshness, and liveness decision paths
+to the 25-tree hybrid, reports the per-path outcomes, and supersedes the older
+result for headline claims. Its exact Arm Performix profile is in
+[`arm-performix-v2-final-profile.md`](arm-performix-v2-final-profile.md).

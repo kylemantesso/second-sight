@@ -8,7 +8,8 @@ V1 evidence remains immutable. The previously held-out `npc3-crossing-route`
 may be used only as a known-route regression check. The first v2
 `straight-through-intersection` run was observed while correcting a
 route-invariance defect, so it is also regression-only. V2's headline final
-result now requires an unseen `straight-through-exit` cohort.
+result uses an unseen `straight-through-exit` cohort. That completed result is
+recorded in [`../reports/v2-final-arm-route-validation.md`](../reports/v2-final-arm-route-validation.md).
 
 ## Freeze the new cohort
 
@@ -74,7 +75,9 @@ end-to-end vehicle safety latency.
 Finally re-run the native inference benchmark and a Performix System
 Utilization recipe against the frozen v2 model and new final-route stream.
 Archive unmodified reports, checksums, Docker image digests, raw bags, and the
-Performix export under a new private S3 run prefix.
+Performix export under a new private S3 run prefix. The completed V2 archive
+includes the raw and processed streams, model, all live traces, the Performix
+export, and checksum manifests.
 
 ## Cost guardrail
 

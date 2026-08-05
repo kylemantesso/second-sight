@@ -32,9 +32,10 @@ that minimum.
 | 2026-08-04 08:37:15 | 08:41:54 | 4m 39s | $0.06436 |
 | 2026-08-04 08:50:05 | 09:30:35 | 40m 30s | $0.56052 |
 | 2026-08-04 12:02:44 | 12:08:39 | 5m 55s | $0.08189 |
-| **Total** |  | **3h 08m 25s** | **$2.60770** |
+| 2026-08-05 12:12:55 | 13:10:14 | 57m 19s | $0.79326 |
+| **Total** |  | **4h 05m 44s** | **$3.40096** |
 
-The instance was stopped after the latest Arm validation session,
+The instance was stopped after the V2 final-route validation session,
 so this compute charge is no longer increasing. Re-starting it costs about
 **$0.01384 per minute** while it runs. Start and stop times are CloudTrail
 request timestamps; actual billing ceases after EC2 reaches `stopped` and can
@@ -51,7 +52,7 @@ US$0.096 per GB-month:
 - about **$0.01333/hour** (using a 30-day month for this estimate).
 
 From volume creation at 2026-08-02 12:17:29 until the latest stop request at
-2026-08-04 12:08:39, its pro-rated storage cost is about **$0.63804**. It
+2026-08-05 13:10:14, its pro-rated storage cost is about **$0.97172**. It
 continues to accrue at the
 rate above even though the instance is stopped. Do not delete the volume
 without first preserving or intentionally discarding its cached Arm64 images
@@ -59,19 +60,20 @@ and artifacts.
 
 ## Artifact storage and total to date
 
-The private benchmark bucket holds 383 objects totaling 1,554,619,983 bytes
-(about 1,482.6 MiB). It includes the repeated fast-path artifacts, causal
+The private benchmark bucket holds 459 objects totaling 6,704,231,166 bytes
+(about 6.24 GiB). It includes the repeated fast-path artifacts, causal
 portable teleport traces, initial Arm Performix exports, route/traffic smoke
-bags, and the final frozen-route raw bags, model, reports, and checksums.
-Storage and request charges remain below one cent at this scale; same-region
-EC2-to-S3 transfers do not materially change this estimate.
+bags, and the V2 final frozen-route raw bags, processed streams, model, live
+traces, reports, Performix export, and checksums. Storage and request charges
+remain small relative to compute and EBS at this scale; same-region EC2-to-S3
+transfers do not materially change this estimate.
 
-| Category | Estimated cost through 2026-08-04 12:08 AEST |
+| Category | Estimated cost through 2026-08-05 13:10 AEST |
 | --- | ---: |
-| EC2 compute | $2.60770 |
-| Pro-rated 100 GB gp3 EBS | ~$0.63804 |
-| S3 storage and requests | < $0.01 |
-| **Total before tax** | **about $3.26** |
+| EC2 compute | $3.40096 |
+| Pro-rated 100 GB gp3 EBS | ~$0.97172 |
+| S3 storage and requests | small; not yet settled |
+| **Total before tax, excluding unsettled S3** | **about $4.37** |
 
 Check Cost Explorer the following day for the settled invoice value. Keep the
 instance stopped whenever it is not actively benchmarking; the EBS volume is
