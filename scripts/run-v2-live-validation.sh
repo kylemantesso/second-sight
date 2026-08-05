@@ -53,7 +53,7 @@ for index in "${!labels[@]}"; do
     run_id="$run_prefix-$label-r$(printf '%02d' "$repeat")"
     "$root_dir/scripts/run-live-latency-trial.sh" "$run_id" "$scenario"
     trace="$measurement_dir/$run_id.jsonl"
-    if ! rg -q "\"safe_stop_path\":\"$expected_path\"" "$trace"; then
+    if ! grep -Fq "\"safe_stop_path\":\"$expected_path\"" "$trace"; then
       echo "$run_id did not stop through $expected_path; inspect $trace" >&2
       exit 1
     fi
