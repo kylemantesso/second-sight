@@ -1,0 +1,33 @@
+schema_version: 1
+name: v2-arm-route-split-20260805
+frozen: true
+frozen_at_utc: '2026-08-05T02:20:19Z'
+purpose: >-
+  Final no-leakage Arm evaluation for Second Sight v2. The final route was
+  smoke-validated on native Graviton before this assignment was frozen; its
+  three final clean recordings are collected only after this commit.
+route_smoke_evidence:
+  platform: AWS Graviton c8g.4xlarge, ap-southeast-2
+  route_id: straight-through-intersection
+  recorded_at_utc: '2026-08-05T02:16:52Z'
+  duration_seconds: 44.499
+  detection_frames: 446
+  planning_trajectories: 11431
+  complete_feature_ticks: 11431
+  artifact: >-
+    s3://second-sight-benchmark-artifacts-088711593565-ap-southeast-2/
+    runs/v2-route-validation-20260805/straight-through-intersection/
+collection_requirements:
+  platform: AWS Graviton c8g.4xlarge, ap-southeast-2
+  minimum_complete_ticks_per_recording: 300
+  clean_recordings_per_route: 3
+cohorts:
+  train:
+    route_ids:
+      - north-approach-right-turn
+  validation:
+    route_ids:
+      - npc1-crossing-route
+  final_test:
+    route_ids:
+      - straight-through-intersection
