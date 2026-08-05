@@ -13,7 +13,7 @@ the versioned source of truth is
 | --- | --- | --- |
 | `north-approach-right-turn` | Starts on the approximately 230 m predecessor lane, then uses the original right-turn goal. | Validated on Graviton (2026-08-03) |
 | `straight-through-intersection` | Takes the straight-through branch from the original ego start. | Validated on Graviton (2026-08-05); v2 regression route |
-| `straight-through-exit` | Continues beyond the straight-through intersection to its successor lane. | Candidate: not yet validated |
+| `straight-through-exit` | Continues beyond the straight-through intersection to its successor lane. | Validated on Graviton (2026-08-05); reserved for v2 final test |
 | `npc1-crossing-route` | Promotes the simulator's first NPC crossing route to ego, moving that NPC clear of its original start. | Validated on Graviton (2026-08-03) |
 | `npc3-crossing-route` | Promotes the simulator's third NPC crossing route to ego, moving that NPC behind the new ego start. | Validated on Graviton (2026-08-03) |
 | `extended-right-turn` | Uses the original start, then continues onto the successor of the original goal lane. | Rejected: did not reach `WaitingForEngage` |
@@ -119,6 +119,13 @@ v2 final test in
 The smoke bag is route-validation evidence only; three post-freeze clean
 recordings were collected for the first v2 evaluation. That result exposed a
 route-invariance calibration defect, so this route is now regression evidence,
-not the final unseen v2 cohort. `straight-through-exit` must pass the same
-smoke protocol before it can be frozen as the replacement final route. The
-full sequence is in [`v2-validation.md`](v2-validation.md).
+not the final unseen v2 cohort. The full sequence is in
+[`v2-validation.md`](v2-validation.md).
+
+`straight-through-exit` passed that replacement smoke protocol on 2026-08-05:
+its 44.597-second bag contained 447 detection frames, 10,756 planning
+trajectories, and 10,756 complete feature ticks. It is frozen as the new final
+test in
+[`../configs/cohorts/v2-final-arm-route-split-20260805.yaml`](../configs/cohorts/v2-final-arm-route-split-20260805.yaml).
+Its smoke bag is route-validation evidence only; the final evaluation accepts
+only the three recordings captured after that manifest was frozen.

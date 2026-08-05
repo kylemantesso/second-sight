@@ -18,7 +18,7 @@ variants:
     ego_start: {lane_id: '8221', s: 5.012, offset: -0.195}
     ego_goal: {lane_id: '8212', s: 5.0, offset: -0.195}
   - id: straight-through-exit
-    status: candidate
+    status: validated
     description: Continue beyond the straight-through intersection onto its successor lane.
     ego_start: {lane_id: '8221', s: 5.012, offset: -0.195}
     ego_goal: {lane_id: '3238', s: 5.0, offset: -0.195}

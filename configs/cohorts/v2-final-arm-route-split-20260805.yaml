@@ -1,0 +1,34 @@
+schema_version: 1
+name: v2-final-arm-route-split-20260805
+frozen: true
+frozen_at_utc: '2026-08-05T02:41:19Z'
+purpose: >-
+  Replacement no-leakage Arm final evaluation for Second Sight v2 after the
+  first v2 final route was observed during a route-invariance correction.
+  This final route was smoke-validated before this assignment was frozen; its
+  three final clean recordings are collected only after this commit.
+route_smoke_evidence:
+  platform: AWS Graviton c8g.4xlarge, ap-southeast-2
+  route_id: straight-through-exit
+  recorded_at_utc: '2026-08-05T02:38:15Z'
+  duration_seconds: 44.597
+  detection_frames: 447
+  planning_trajectories: 10756
+  complete_feature_ticks: 10756
+  artifact: >-
+    s3://second-sight-benchmark-artifacts-088711593565-ap-southeast-2/
+    runs/v2-final-route-validation-20260805/straight-through-exit/
+collection_requirements:
+  platform: AWS Graviton c8g.4xlarge, ap-southeast-2
+  minimum_complete_ticks_per_recording: 300
+  clean_recordings_per_route: 3
+cohorts:
+  train:
+    route_ids:
+      - north-approach-right-turn
+  validation:
+    route_ids:
+      - npc1-crossing-route
+  final_test:
+    route_ids:
+      - straight-through-exit
