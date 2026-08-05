@@ -16,26 +16,40 @@ from typing import Any
 class ConfidenceHealthConfig:
     """Clean-data floors for an object-bearing perception frame."""
 
-    mean_existence_floor: float
-    mean_classification_floor: float
+    mean_existence_floor: float | None
+    mean_classification_floor: float | None
     consecutive_frames: int = 2
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> ConfidenceHealthConfig:
         config = cls(
-            mean_existence_floor=float(value["mean_existence_floor"]),
-            mean_classification_floor=float(value["mean_classification_floor"]),
+            mean_existence_floor=(
+                float(value["mean_existence_floor"])
+                if value.get("mean_existence_floor") is not None
+                else None
+            ),
+            mean_classification_floor=(
+                float(value["mean_classification_floor"])
+                if value.get("mean_classification_floor") is not None
+                else None
+            ),
             consecutive_frames=int(value.get("consecutive_frames", 2)),
         )
-        if not 0 <= config.mean_existence_floor <= 1:
+        if (
+            config.mean_existence_floor is not None
+            and not 0 <= config.mean_existence_floor <= 1
+        ):
             raise ValueError("confidence existence floor must be between 0 and 1")
-        if not 0 <= config.mean_classification_floor <= 1:
+        if (
+            config.mean_classification_floor is not None
+            and not 0 <= config.mean_classification_floor <= 1
+        ):
             raise ValueError("confidence classification floor must be between 0 and 1")
         if config.consecutive_frames <= 0:
             raise ValueError("confidence consecutive_frames must be positive")
         return config
 
-    def as_dict(self) -> dict[str, float | int]:
+    def as_dict(self) -> dict[str, float | int | None]:
         return {
             "mean_existence_floor": self.mean_existence_floor,
             "mean_classification_floor": self.mean_classification_floor,
@@ -132,12 +146,18 @@ class DetectionSafetyMonitors:
         assert self.freshness_condition is not None
 
         object_bearing = float(row["object_count"]) > 0
-        low_confidence = object_bearing and (
-            float(row["mean_existence_probability"])
-            < self.confidence.mean_existence_floor
-            and float(row["mean_classification_probability"])
-            < self.confidence.mean_classification_floor
-        )
+        confidence_checks = []
+        if self.confidence.mean_existence_floor is not None:
+            confidence_checks.append(
+                float(row["mean_existence_probability"])
+                < self.confidence.mean_existence_floor
+            )
+        if self.confidence.mean_classification_floor is not None:
+            confidence_checks.append(
+                float(row["mean_classification_probability"])
+                < self.confidence.mean_classification_floor
+            )
+        low_confidence = object_bearing and bool(confidence_checks) and all(confidence_checks)
         confidence_anomalous, confidence_count = self.confidence_condition.observe(low_confidence)
 
         stale = float(row["source_age_ms"]) > self.freshness.max_source_age_ms

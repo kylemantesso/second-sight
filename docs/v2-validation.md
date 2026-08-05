@@ -45,6 +45,11 @@ guardrails, confidence monitor, and freshness monitor. Liveness uses 1.5 times
 the maximum clean validation detection gap, with a 300 ms minimum. The frozen
 metadata records every threshold and its clean-data source.
 
+Generic guardrails deliberately use only frame-to-frame movement and object
+change signals. Absolute traffic counts, class mix, confidence, and source age
+vary legitimately by route or middleware source; they remain model inputs or
+belong to their dedicated monitors rather than hard scene-composition bounds.
+
 The final report distinguishes planning-tick and detection-frame denominators,
 and records the first decision path for every injected fault. Do not combine
 their raw counts into an unqualified per-frame rate. Report the measured

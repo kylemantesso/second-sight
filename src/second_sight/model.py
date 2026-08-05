@@ -31,15 +31,10 @@ EXPERIMENTAL_FEATURES = {
 }
 MODEL_FEATURE_NAMES = tuple(name for name in FEATURE_NAMES if name not in EXPERIMENTAL_FEATURES)
 
+# Generic guardrails must tolerate a new route's legitimate traffic density and
+# class composition. Absolute counts and confidence are therefore handled by
+# the forest and the dedicated confidence monitor, not by hard bounds.
 GUARDRAIL_FEATURES = (
-    "object_count",
-    "car_count",
-    "pedestrian_count",
-    "unknown_count",
-    "mean_existence_probability",
-    "min_existence_probability",
-    "mean_classification_probability",
-    "min_classification_probability",
     "mean_object_displacement_m",
     "max_object_displacement_m",
     "max_relative_object_displacement_m",
@@ -47,7 +42,6 @@ GUARDRAIL_FEATURES = (
     "unexpected_object_drop_count",
     "object_count_delta",
     "centroid_shift_m",
-    "source_age_ms",
 )
 PERCEPTION_GUARDRAIL_FEATURES = tuple(
     name
@@ -451,9 +445,16 @@ def build_safety_monitor_config(
         (observed_gap_ms or 0.0) * LIVENESS_TIMEOUT_MARGIN,
     )
     timeout_ms = float(np.ceil(timeout_ms / 10.0) * 10.0)
+    existence_floor = lower_tail_floor(existence, branch_allocation)
+    classification_floor = lower_tail_floor(classification, branch_allocation)
     confidence = ConfidenceHealthConfig(
-        mean_existence_floor=lower_tail_floor(existence, branch_allocation),
-        mean_classification_floor=lower_tail_floor(classification, branch_allocation),
+        # Some Autoware sources intentionally publish zero existence
+        # probabilities. A zero floor cannot distinguish a collapse, so omit
+        # that channel and rely on the remaining calibrated confidence signal.
+        mean_existence_floor=existence_floor if existence_floor > 0 else None,
+        mean_classification_floor=(
+            classification_floor if classification_floor > 0 else None
+        ),
         consecutive_frames=SAFETY_MONITOR_CONSECUTIVE_FRAMES,
     )
     freshness = SourceFreshnessConfig(
